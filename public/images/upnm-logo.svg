@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <path id="upnmTop" d="M 100 100 m -78 0 a 78 78 0 1 1 156 0" />
+    <path id="upnmBot" d="M 100 100 m 78 0 a 78 78 0 1 1 -156 0" />
+  </defs>
+  <circle cx="100" cy="100" r="96" fill="#ffffff"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="#0a3d91" stroke-width="3"/>
+  <circle cx="100" cy="100" r="62" fill="none" stroke="#0a3d91" stroke-width="2.5"/>
+  <text font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#0a3d91" font-size="12.5" letter-spacing="2.2">
+    <textPath href="#upnmTop" startOffset="50%" text-anchor="middle">UNIVERSITI PERTAHANAN</textPath>
+  </text>
+  <text font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#0a3d91" font-size="12.5" letter-spacing="2.2">
+    <textPath href="#upnmBot" startOffset="50%" text-anchor="middle">NASIONAL MALAYSIA</textPath>
+  </text>
+  <!-- side stars -->
+  <g fill="#0a3d91">
+    <path d="M14 100 l4 -3 l-1.5 4.5 l4 0 l-3.5 2.5 l1.3 4.5 l-4.3 -3 l-4.3 3 l1.3 -4.5 l-3.5 -2.5 l4 0 z"/>
+    <path d="M186 100 l4 -3 l-1.5 4.5 l4 0 l-3.5 2.5 l1.3 4.5 l-4.3 -3 l-4.3 3 l1.3 -4.5 l-3.5 -2.5 l4 0 z"/>
+  </g>
+  <!-- NDUM banner -->
+  <rect x="86" y="46" width="28" height="12" rx="2" fill="#c0202f"/>
+  <text x="100" y="55" text-anchor="middle" font-family="Georgia, serif" font-weight="700" fill="#ffffff" font-size="8" letter-spacing="1">NDUM</text>
+  <!-- laurel wreath -->
+  <g fill="none" stroke="#e0a800" stroke-width="2.4" stroke-linecap="round">
+    <path d="M74 138 C 58 122 54 96 66 70"/>
+    <path d="M126 138 C 142 122 146 96 134 70"/>
+  </g>
+  <g fill="#e0a800">
+    <g><ellipse cx="63" cy="80" rx="3.2" ry="6" transform="rotate(-35 63 80)"/><ellipse cx="60" cy="94" rx="3.2" ry="6" transform="rotate(-20 60 94)"/><ellipse cx="60" cy="108" rx="3.2" ry="6" transform="rotate(-5 60 108)"/><ellipse cx="64" cy="122" rx="3.2" ry="6" transform="rotate(15 64 122)"/></g>
+    <g><ellipse cx="137" cy="80" rx="3.2" ry="6" transform="rotate(35 137 80)"/><ellipse cx="140" cy="94" rx="3.2" ry="6" transform="rotate(20 140 94)"/><ellipse cx="140" cy="108" rx="3.2" ry="6" transform="rotate(5 140 108)"/><ellipse cx="136" cy="122" rx="3.2" ry="6" transform="rotate(-15 136 122)"/></g>
+  </g>
+  <!-- central star burst -->
+  <g transform="translate(100 100)">
+    <g fill="#e0a800">
+      <path d="M0 -34 L4 -6 L-4 -6 Z"/>
+      <path d="M0 34 L4 6 L-4 6 Z"/>
+      <path d="M-34 0 L-6 4 L-6 -4 Z"/>
+      <path d="M34 0 L6 4 L6 -4 Z"/>
+      <path d="M-24 -24 L-4 -4 L-8 0 Z" transform="rotate(0)"/>
+    </g>
+    <g fill="#c0202f">
+      <path d="M0 -30 L3 -5 L-3 -5 Z"/>
+      <path d="M0 30 L3 5 L-3 5 Z"/>
+      <path d="M-30 0 L-5 3 L-5 -3 Z"/>
+      <path d="M30 0 L5 3 L5 -3 Z"/>
+    </g>
+    <!-- crossed keris / emblem center -->
+    <g stroke="#0a3d91" stroke-width="3" stroke-linecap="round">
+      <line x1="-16" y1="14" x2="16" y2="-14"/>
+      <line x1="16" y1="14" x2="-16" y2="-14"/>
+    </g>
+    <circle cx="0" cy="0" r="7" fill="#0a3d91"/>
+    <circle cx="0" cy="0" r="3" fill="#e0a800"/>
+  </g>
+  <!-- 2006 banner -->
+  <rect x="86" y="142" width="28" height="12" rx="2" fill="#c0202f"/>
+  <text x="100" y="151" text-anchor="middle" font-family="Georgia, serif" font-weight="700" fill="#ffffff" font-size="8" letter-spacing="1">2006</text>
+</svg>
