@@ -15,7 +15,9 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 160 }).notNull(),
   email: varchar("email", { length: 200 }).notNull().unique(),
   password: varchar("password", { length: 200 }).notNull(),
-  role: varchar("role", { length: 40 }).notNull().default("student"),
+  role: varchar("role", { length: 40 })
+   .notNull()
+   .default("student/lecturer"),
   avatarColor: varchar("avatar_color", { length: 20 }).default("#1B3A6B"),
   specialization: varchar("specialization", { length: 120 }),
   online: boolean("online").default(true),

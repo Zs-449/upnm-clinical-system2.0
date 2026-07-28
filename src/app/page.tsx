@@ -28,7 +28,7 @@ const FLOATING_STATS = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const [role, setRole] = useState<Role>("student");
+  const [role, setRole] = useState<Role>("student/lecturer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -59,8 +59,11 @@ export default function LoginPage() {
     return () => { clearInterval(c); window.removeEventListener("mousemove", onMove); };
   }, []);
 
-  const demoEmail = `${role}@upnm.edu.my`;
-
+  const demoEmail =
+  role === "student/lecturer"
+    ? "student@upnm.edu.my"
+    : `${role}@upnm.edu.my`;
+    
   const fillDemo = () => {
     setEmail(demoEmail);
     setPassword("password123");
@@ -88,8 +91,12 @@ export default function LoginPage() {
       }
       saveSession(data.user);
       toast(`Welcome back, ${data.user.name.split(" ")[0]}!`, "success");
-      setTimeout(() => {
-        router.push(data.user.role === "student" ? "/portal" : "/dashboard");
+      setTimeout(() => { 
+        router.push(
+  data.user.role === "student/lecturer"
+    ? "/portal"
+    : "/dashboard"
+);
       }, 500);
     } catch {
       setError("Network error. Please retry.");
