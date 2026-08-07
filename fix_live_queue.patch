@@ -1,0 +1,39 @@
+[1mdiff --git a/src/app/api/appointments/route.ts b/src/app/api/appointments/route.ts[m
+[1mindex e23e60e..9c3eaa9 100644[m
+[1m--- a/src/app/api/appointments/route.ts[m
+[1m+++ b/src/app/api/appointments/route.ts[m
+[36m@@ -15,7 +15,7 @@[m [mexport async function GET() {[m
+ export async function POST(req: Request) {[m
+   try {[m
+     const body = await req.json();[m
+[31m-    const today = new Date().toISOString().slice(0, 10);[m
+[32m+[m[32m    const today = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"})).toLocaleDateString('en-CA');[m
+ [m
+     // Auto-create patient if not exists: look up by patientName, or create new record[m
+     const { patients: patientsTable, activities: act } = await import("@/db/schema");[m
+[1mdiff --git a/src/app/api/dashboard/route.ts b/src/app/api/dashboard/route.ts[m
+[1mindex a167226..ea4037d 100644[m
+[1m--- a/src/app/api/dashboard/route.ts[m
+[1m+++ b/src/app/api/dashboard/route.ts[m
+[36m@@ -10,7 +10,7 @@[m [mimport { sql, eq, desc } from "drizzle-orm";[m
+ export const dynamic = "force-dynamic";[m
+ [m
+ export async function GET() {[m
+[31m-  const today = new Date().toISOString().slice(0, 10);[m
+[32m+[m[32m  const today = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"})).toLocaleDateString('en-CA');[m
+ [m
+   const [patientCount] = await db[m
+     .select({ c: sql<number>`count(*)::int` })[m
+[1mdiff --git a/src/app/appointments/page.tsx b/src/app/appointments/page.tsx[m
+[1mindex 78ca827..16b47a4 100644[m
+[1m--- a/src/app/appointments/page.tsx[m
+[1m+++ b/src/app/appointments/page.tsx[m
+[36m@@ -32,7 +32,7 @@[m [mexport default function AppointmentsPage() {[m
+   const [saving, setSaving] = useState(false);[m
+   const [done, setDone] = useState(false);[m
+ [m
+[31m-  const todayStr = new Date().toISOString().slice(0, 10);[m
+[32m+[m[32m  const todayStr = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"})).toLocaleDateString('en-CA');[m
+   const days = useMemo(() => {[m
+     const first = new Date(month.getFullYear(), month.getMonth(), 1);[m
+     const startDay = first.getDay();[m
