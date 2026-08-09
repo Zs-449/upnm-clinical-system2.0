@@ -8,8 +8,9 @@ import { AreaChart, DonutChart, Gauge } from "@/components/charts";
 import {
   CalendarCheck, Users, Stethoscope, FlaskConical,
   Clock, AlertTriangle, Sparkles, Brain, ShieldAlert,
-  User as UserIcon, ArrowRight, Pill, PackageSearch,
+  User as UserIcon, ArrowRight, ArrowUpRight, Pill, PackageSearch,
   CheckCircle2, Loader2, FileText, ClipboardList, BarChart3,
+  ShieldCheck, Activity,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -25,12 +26,24 @@ interface DashData {
 }
 interface RxLite { id: number; patientId: number; patientName: string; status: string; medications: { name: string; quantity?: number }[]; }
 interface InvLite { id: number; name: string; stock: number; minStock: number; }
-interface RecordLite { id: number; patientId: number; patientName: string; doctorName: string; diagnosis: string | null; chiefComplaint: string | null; createdAt: string; }
+interface RecordLite { id: number; patientId: number; patientName: string; doctorName: string; diagnosis: string | null; chiefComplaint: string | null; prescriptionId: number | null; createdAt: string; }
 
 const DEPT_COLORS: Record<string, string> = { General: "#1f3d3a", Dental: "#7a9e7e", "Mental Health": "#c9955a", Emergency: "#c25d5d" };
 
 function initials(name: string) {
   return name.split(" ").map((w) => w[0]).slice(0, 2).join("");
+}
+
+// Best-effort icon for a free-text activity log entry, derived purely from
+// keywords already present in the real `action` string — no new data.
+function activityIcon(action: string): React.ElementType {
+  const a = action.toLowerCase();
+  if (a.includes("dispensing")) return Loader2;
+  if (a.includes("collected")) return CheckCircle2;
+  if (a.includes("prescription created")) return FileText;
+  if (a.includes("consultation")) return Stethoscope;
+  if (a.includes("appointment") || a.includes("booked")) return CalendarCheck;
+  return Activity;
 }
 
 export default function DashboardPage() {
@@ -42,7 +55,6 @@ export default function DashboardPage() {
   const { data: invData } = useApi<{ inventory: InvLite[] }>("/api/inventory", 30000);
   const { data: recData } = useApi<{ medicalRecords: RecordLite[] }>("/api/medical-records", 30000);
 
-  const [range, setRange] = useState<"Daily" | "Weekly" | "Monthly">("Daily");
   const [greeting, setGreeting] = useState("Good afternoon");
   const [name, setName] = useState("Doctor");
   const [today, setToday] = useState("");
@@ -51,7 +63,7 @@ export default function DashboardPage() {
     const now = new Date();
     const h = now.getHours();
     setGreeting(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
-    setToday(now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }));
+    setToday(now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
     const u = getSession();
     if (u) setName(u.name.split(" ").slice(-1)[0]);
   }, []);
@@ -60,7 +72,11 @@ export default function DashboardPage() {
   const trendData = data?.trend ?? [];
   const donut = (data?.byDept ?? []).map((d) => ({ label: d.department, value: d.count, color: DEPT_COLORS[d.department] ?? "#7a7168" }));
 
-  const nextPatient = (data?.queue ?? []).find((q) => q.status === "Waiting") ?? data?.queue?.[0];
+  const queue = data?.queue ?? [];
+  const nowServing = queue.filter((q) => q.status === "In Consultation");
+  const waiting = queue.filter((q) => q.status === "Waiting");
+  const nextUp = waiting[0];
+  const restWaiting = waiting.slice(1);
   const criticalCount = data?.criticalLabs?.length ?? 0;
 
   // Real pharmacy/inventory context, derived client-side from the existing
@@ -76,12 +92,13 @@ export default function DashboardPage() {
   const lowStock = inventory.filter((i) => i.stock < i.minStock);
   const inventoryHealth = inventory.length ? Math.round(((inventory.length - lowStock.length) / inventory.length) * 100) : 100;
 
-  const recentRecords = (recData?.medicalRecords ?? []).slice(0, 4);
+  const recentRecords = (recData?.medicalRecords ?? []).slice(0, 5);
 
   // Each recommendation links to the real record that produced it (reusing
   // existing pages) instead of being a dead-end action. Recommendations that
   // are not derived from a specific patient's data fall back to Analytics,
   // matching the behavior already used by the "Quick Alerts" panel below.
+  // Unchanged from V1 — same data, same hrefs.
   const topCriticalLab = data?.criticalLabs?.[0];
   const aiInsights = [
     {
@@ -100,367 +117,360 @@ export default function DashboardPage() {
 
   return (
     <Shell>
-      {/* ========== HEADER ========== */}
-      <div className="relative mb-8 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0f1f1a] via-navy to-[#1c3835] p-8 text-white lg:p-10">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="blob absolute left-[-8%] top-[-40%] h-[320px] w-[320px] bg-cyan/10" />
-          <div className="blob absolute right-[-8%] bottom-[-40%] h-[320px] w-[320px] bg-mint/10" style={{ animationDelay: "-10s" }} />
+      {/* ========== COMMAND CENTER HEADER ========== */}
+      <div className="relative mb-8 overflow-hidden rounded-[24px] border border-navy/5 bg-gradient-to-br from-[#0f1f1a] via-navy to-[#16302c] p-8 text-white dark:border-white/5 lg:p-10">
+        {/* Extremely subtle ambient treatment — radial glow + faint grid, no giant blobs */}
+        <div className="pointer-events-none absolute inset-0 opacity-60">
+          <div className="absolute inset-0" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
+          <div className="absolute right-[-10%] top-[-30%] h-[380px] w-[380px] rounded-full opacity-20 blur-3xl" style={{ background: "radial-gradient(circle, #4fd1c5, transparent 70%)" }} />
         </div>
 
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-white/50">
-              <span>{today || "\u00A0"}</span>
+        <div className="relative z-10">
+          {/* system status */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/70 backdrop-blur-md">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-mint" />
+              </span>
+              Clinical workspace ready
             </div>
-            <h1 className="font-[Poppins] text-3xl font-bold leading-tight tracking-tight lg:text-4xl">
-              {greeting}, {name}
-            </h1>
-            <p className="mt-2 max-w-lg text-sm text-white/60">
-              Here&apos;s today&apos;s clinical overview
-              {criticalCount > 0 ? ` — ${criticalCount} case${criticalCount === 1 ? "" : "s"} need${criticalCount === 1 ? "s" : ""} your attention.` : "."}
-            </p>
+            <span className="text-xs font-medium uppercase tracking-widest text-white/40">{today || "\u00A0"}</span>
           </div>
 
-          {/* Quick actions — only routes that already exist in the app */}
-          <div className="flex flex-wrap gap-2">
-            <Link href="/emr" className="group flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium backdrop-blur-md transition hover:border-cyan/40 hover:bg-white/10">
-              <FileText className="h-4 w-4 text-cyan" /> New Consultation
-            </Link>
-            <Link href="/patients" className="group flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium backdrop-blur-md transition hover:border-cyan/40 hover:bg-white/10">
-              <Users className="h-4 w-4 text-cyan" /> Patients
-            </Link>
-            <Link href="/pharmacy" className="group flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium backdrop-blur-md transition hover:border-cyan/40 hover:bg-white/10">
-              <Pill className="h-4 w-4 text-cyan" /> Pharmacy
-            </Link>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-cyan/80">Clinical Command Center</p>
+              <h1 className="font-[Poppins] text-3xl font-bold leading-tight tracking-tight lg:text-[2.75rem]">
+                {greeting}, Dr. {name}
+              </h1>
+              <p className="mt-2 max-w-lg text-sm text-white/55">
+                Monitor today&apos;s patient activity, prescription workflow and AI-assisted insights
+                {criticalCount > 0 ? ` — ${criticalCount} case${criticalCount === 1 ? "" : "s"} need${criticalCount === 1 ? "s" : ""} your attention.` : "."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/patients" className="rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-xs font-medium text-white/70 backdrop-blur-md transition hover:border-white/25 hover:text-white">Patients</Link>
+              <Link href="/pharmacy" className="rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-xs font-medium text-white/70 backdrop-blur-md transition hover:border-white/25 hover:text-white">Pharmacy</Link>
+              <Link href="/emr" className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan to-mint px-4 py-2.5 text-sm font-semibold text-navy shadow-lg shadow-cyan/10 transition hover:brightness-105">
+                <FileText className="h-4 w-4" /> New Consultation
+              </Link>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ========== KEY CLINICAL METRICS ========== */}
-      <SectionHeading>Today at a glance</SectionHeading>
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          icon={CalendarCheck}
-          color="#1f3d3a"
-          label="Patients Today"
-          value={stats.todayAppointments}
-          loading={loading}
-          sub="Scheduled appointments"
-        />
-        <MetricCard
-          icon={Pill}
-          color="#c9955a"
-          label="Pending Prescriptions"
-          value={pendingRx.length}
-          loading={!rxData}
-          sub="Awaiting dispensing"
-        />
-        <MetricCard
-          icon={CheckCircle2}
-          color="#7a9e7e"
-          label="Collected"
-          value={collectedRx.length}
-          loading={!rxData}
-          sub="Completed dispensing"
-        />
-        <MetricCard
-          icon={AlertTriangle}
-          color={lowStock.length > 0 ? "#c25d5d" : "#7a9e7e"}
-          label="Inventory Alerts"
-          value={lowStock.length}
-          loading={!invData}
-          sub={lowStock.length > 0 ? "Requires attention" : "All medicines stocked"}
-        />
-      </div>
+      {/* ========== TODAY AT A GLANCE (hero metric) ========== */}
+      <div className="card mb-8 p-6 lg:p-8">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-center">
+          <div className="lg:w-64 lg:shrink-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Today at a Glance</p>
+            <div className="mt-2 flex items-end gap-2">
+              <span className="font-mono text-6xl font-bold leading-none tracking-tight text-navy dark:text-white">
+                {loading ? <Skeleton className="h-14 w-24" /> : <Counter value={stats.todayAppointments} />}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">patients scheduled today</p>
+          </div>
 
-      {/* Secondary operational stats — same real fields the dashboard has
-         always shown (data.stats), kept but given lighter visual weight so
-         the primary clinical metrics above lead the hierarchy. */}
-      <div className="mb-8 flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white/60 p-4 dark:border-white/10 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:divide-x sm:divide-slate-100 dark:sm:divide-white/10">
-        <div className="flex flex-1 items-center gap-3 sm:pr-4">
-          <Stethoscope className="h-4 w-4 shrink-0 text-cyan" />
-          <div>
-            <div className="font-mono text-sm font-bold text-navy dark:text-white">{loading ? <Skeleton className="inline-block h-4 w-6" /> : stats.availableDoctors}</div>
-            <div className="text-xs text-slate-400">Doctors on duty</div>
+          <div className="grid flex-1 grid-cols-1 gap-5 border-slate-100 dark:border-white/10 sm:grid-cols-3 lg:border-l lg:pl-8">
+            <GlanceMetric icon={Pill} color="#c9955a" label="Pending Prescriptions" value={pendingRx.length} loading={!rxData} sub="Awaiting dispensing" />
+            <GlanceMetric icon={CheckCircle2} color="#7a9e7e" label="Completed Dispensing" value={collectedRx.length} loading={!rxData} sub="All-time collected" />
+            <GlanceMetric icon={AlertTriangle} color={lowStock.length > 0 ? "#c25d5d" : "#7a9e7e"} label="Inventory Alerts" value={lowStock.length} loading={!invData} sub={lowStock.length > 0 ? "Requires attention" : "Stock is healthy"} />
           </div>
         </div>
-        <div className="flex flex-1 items-center gap-3 sm:px-4">
-          <FlaskConical className="h-4 w-4 shrink-0 text-amber" />
-          <div>
-            <div className="font-mono text-sm font-bold text-navy dark:text-white">{loading ? <Skeleton className="inline-block h-4 w-6" /> : stats.pendingLabs}</div>
-            <div className="text-xs text-slate-400">Pending lab results</div>
-          </div>
-        </div>
-        <div className="flex flex-1 items-center gap-3 sm:pl-4">
-          <UserIcon className="h-4 w-4 shrink-0 text-mint" />
-          <div>
-            <div className="font-mono text-sm font-bold text-navy dark:text-white">{loading ? <Skeleton className="inline-block h-4 w-6" /> : stats.activePatients}</div>
-            <div className="text-xs text-slate-400">Active patients</div>
-          </div>
+
+        {/* Secondary operational stats — same real fields the dashboard has
+           always shown (data.stats), given lighter visual weight below the
+           hero metrics. */}
+        <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-white/10 sm:flex-row sm:divide-x sm:divide-slate-100 dark:sm:divide-white/10">
+          <MiniStat icon={Stethoscope} color="text-cyan" label="Doctors on duty" value={stats.availableDoctors} loading={loading} />
+          <MiniStat icon={FlaskConical} color="text-amber" label="Pending lab results" value={stats.pendingLabs} loading={loading} />
+          <MiniStat icon={UserIcon} color="text-mint" label="Active patients" value={stats.activePatients} loading={loading} />
         </div>
       </div>
 
-      {/* ========== LIVE QUEUE ========== */}
-      <div id="live-queue" className="mb-8 card p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-[Poppins] text-base font-semibold text-navy dark:text-white">Live Queue</h2>
-          <div className="flex items-center gap-4">
-            {nextPatient && (
-              <div className="flex items-center gap-2 rounded-full bg-mint/10 px-3 py-1 text-xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-mint pulse-dot" />
-                <span className="text-slate-500 dark:text-slate-400">Next:</span>
-                <span className="font-semibold text-navy dark:text-white">{nextPatient.patientName}</span>
-                <span className="text-slate-400">#{nextPatient.queueNumber ?? "?"}</span>
-              </div>
-            )}
-            <span className="flex items-center gap-1.5 text-xs text-slate-400">
-              <Clock className="h-3.5 w-3.5" /> Updates every 30s
+      {/* ========== LIVE QUEUE + AI INTELLIGENCE ========== */}
+      <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        {/* Live Queue — 2/3 */}
+        <div className="card p-6 xl:col-span-2">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 font-[Poppins] text-base font-semibold text-navy dark:text-white">
+              Live Clinical Queue
+            </h2>
+            <span className="flex items-center gap-1.5 rounded-full bg-danger/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-danger">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-danger" />
+              </span>
+              Live
             </span>
           </div>
-        </div>
-        {loading ? (
-          <div className="flex gap-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-40" />)}</div>
-        ) : data && data.queue.filter((q) => q.queueNumber).length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {data.queue.filter((q) => q.queueNumber).map((q, i) => (
-              <div key={q.id} className="card-premium lift min-w-[180px] rounded-xl p-4 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-2xl font-extrabold text-navy dark:text-cyan">#{q.queueNumber}</span>
-                  <Badge color={statusColor(q.status)}>{q.status}</Badge>
-                </div>
-                <div className="mt-2 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{q.patientName}</div>
-                <div className="truncate text-xs text-slate-400">{q.doctorName} · {q.time}</div>
+
+          {loading ? (
+            <div className="flex gap-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-40" />)}</div>
+          ) : queue.filter((q) => q.queueNumber).length > 0 ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              {/* Now Serving */}
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Now Serving</p>
+                {nowServing.length > 0 ? nowServing.slice(0, 1).map((q) => (
+                  <div key={q.id} className="rounded-xl border border-cyan/30 bg-cyan/5 p-4">
+                    <span className="font-mono text-3xl font-extrabold text-cyan">#{q.queueNumber}</span>
+                    <div className="mt-1 truncate text-sm font-semibold text-navy dark:text-white">{q.patientName}</div>
+                    <div className="truncate text-xs text-slate-400">{q.doctorName}</div>
+                  </div>
+                )) : <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400 dark:border-white/10">No one in consultation</div>}
               </div>
+
+              {/* Next */}
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Next</p>
+                {nextUp ? (
+                  <div className="rounded-xl border border-mint/30 bg-mint/5 p-4">
+                    <span className="font-mono text-3xl font-extrabold text-mint">#{nextUp.queueNumber}</span>
+                    <div className="mt-1 truncate text-sm font-semibold text-navy dark:text-white">{nextUp.patientName}</div>
+                    <div className="truncate text-xs text-slate-400">{nextUp.doctorName}</div>
+                  </div>
+                ) : <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400 dark:border-white/10">No one waiting</div>}
+              </div>
+
+              {/* Waiting list */}
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Waiting ({restWaiting.length})</p>
+                {restWaiting.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {restWaiting.map((q) => (
+                      <span key={q.id} className="rounded-lg border border-slate-100 px-2.5 py-1.5 font-mono text-xs font-semibold text-slate-500 dark:border-white/10 dark:text-slate-300">#{q.queueNumber}</span>
+                    ))}
+                  </div>
+                ) : <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400 dark:border-white/10">Queue is clear</div>}
+              </div>
+            </div>
+          ) : (
+            <EmptyState text="No patients in queue today" />
+          )}
+        </div>
+
+        {/* AI Clinical Intelligence — 1/3 */}
+        <div className="ai-glow rounded-[20px] p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-cyan to-mint">
+                <Brain className="h-4.5 w-4.5 text-navy" />
+              </div>
+              <div>
+                <h2 className="font-[Poppins] text-sm font-bold text-navy dark:text-white">AI Clinical Intelligence</h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">{aiInsights.length} insights for review</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {aiInsights.map((insight, i) => (
+              <Link key={i} href={insight.href} className="group flex items-start gap-2.5 rounded-xl border border-white/40 bg-white/70 p-3 transition hover:border-cyan/30 hover:bg-white dark:border-white/5 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg" style={{ background: `${insight.color}22` }}>
+                  <insight.icon className="h-4 w-4" style={{ color: insight.color }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-semibold text-navy dark:text-white">{insight.title}</span>
+                    <ArrowUpRight className="h-3 w-3 shrink-0 text-slate-300 transition group-hover:text-cyan" />
+                  </div>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{insight.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ========== CLINICAL ACTIVITY + MEDICATION/INVENTORY ========== */}
+      <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-3">
+        {/* Timeline — 2/3 */}
+        <div className="card p-6 xl:col-span-2">
+          <h2 className="mb-5 font-[Poppins] text-base font-semibold text-navy dark:text-white">Recent Clinical Activity</h2>
+          {loading ? (
+            <div className="space-y-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+          ) : data?.recent.length ? (
+            <div className="relative space-y-5 pl-5">
+              <div className="absolute left-[7px] top-1 h-[calc(100%-8px)] w-px bg-slate-100 dark:bg-white/10" />
+              {data.recent.map((a, i) => {
+                const Icon = activityIcon(a.action);
+                const dotColor = a.urgency === "critical" ? "#c25d5d" : a.urgency === "warning" ? "#d48040" : "#7a9e7e";
+                return (
+                  <div key={a.id} className="relative flex items-start gap-3 animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
+                    <span className="absolute -left-5 top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full border-2 border-white bg-white dark:border-[#12241f] dark:bg-[#12241f]" style={{ boxShadow: `0 0 0 2px ${dotColor}` }}>
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
+                    </span>
+                    <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-semibold text-navy dark:text-white">{a.patientName}</span>
+                      <span className="text-sm text-slate-500 dark:text-slate-400"> {a.action}</span>
+                    </div>
+                    <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.createdAt)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : <EmptyState text="No recent activity" />}
+        </div>
+
+        {/* Medication Operations + Inventory Intelligence — 1/3 */}
+        <div className="flex flex-col gap-4">
+          <div className="card p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-[Poppins] text-sm font-semibold text-navy dark:text-white">Medication Operations</h2>
+              <Link href="/pharmacy" className="text-xs font-semibold text-cyan hover:underline">View →</Link>
+            </div>
+            {!rxData ? (
+              <Skeleton className="h-24 w-full" />
+            ) : (
+              <div className="flex items-center justify-between">
+                <WorkflowStep label="Pending" count={pendingRx.length} color="#d48040" />
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                <WorkflowStep label="Dispensing" count={dispensingRx.length} color="#c9955a" />
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                <WorkflowStep label="Collected" count={collectedRx.length} color="#7a9e7e" />
+              </div>
+            )}
+            {rxData && pendingRx.length === 0 && dispensingRx.length === 0 && (
+              <p className="mt-3 text-center text-xs text-slate-400">All prescriptions are up to date.</p>
+            )}
+          </div>
+
+          <div className="card p-5">
+            <h2 className="mb-4 font-[Poppins] text-sm font-semibold text-navy dark:text-white">Inventory Intelligence</h2>
+            {!invData ? (
+              <Skeleton className="h-24 w-full" />
+            ) : inventory.length === 0 ? (
+              <EmptyState text="No inventory data yet" />
+            ) : (
+              <div className="flex items-center gap-4">
+                <Gauge value={inventoryHealth} />
+                <div className="min-w-0 flex-1 space-y-1">
+                  {lowStock.length > 0 ? (
+                    <>
+                      <p className="text-xs font-semibold text-navy dark:text-white">{lowStock.length} item{lowStock.length === 1 ? "" : "s"} require attention</p>
+                      {lowStock.slice(0, 3).map((i) => (
+                        <div key={i.id} className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                          <span className="truncate">{i.name}</span>
+                          <span className="font-mono text-danger">{i.stock}</span>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-xs text-slate-400">Inventory is healthy.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ========== RECENT CONSULTATIONS ========== */}
+      <div className="card mb-8 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-[Poppins] text-base font-semibold text-navy dark:text-white">
+            <ClipboardList className="h-4 w-4 text-cyan" /> Recent Consultations
+          </h2>
+        </div>
+        {!recData ? (
+          <Skeleton className="h-32 w-full" />
+        ) : recentRecords.length > 0 ? (
+          <div className="divide-y divide-slate-100 dark:divide-white/5">
+            {recentRecords.map((r) => (
+              <Link key={r.id} href={`/patients/${r.patientId}`} className="flex items-center gap-3 py-3 transition first:pt-0 last:pb-0 hover:bg-mint/5 dark:hover:bg-mint/10 -mx-2 px-2 rounded-lg">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy/10 text-xs font-bold text-navy dark:bg-white/10 dark:text-white">
+                  {initials(r.patientName)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-semibold text-navy dark:text-white">{r.patientName}</span>
+                    {r.prescriptionId && <Badge color="mint">Rx #{r.prescriptionId}</Badge>}
+                  </div>
+                  <div className="truncate text-xs text-slate-400">{r.diagnosis || r.chiefComplaint || "Consultation recorded"} · Dr. {r.doctorName.replace(/^Dr\.\s*/, "")}</div>
+                </div>
+                <span className="shrink-0 text-xs text-slate-400">{timeAgo(r.createdAt)}</span>
+              </Link>
             ))}
           </div>
         ) : (
-          <EmptyState text="No patients in queue today" />
+          <EmptyState text="No consultations recorded yet" />
         )}
       </div>
 
       {/* ========== CHARTS ========== */}
       <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="card lift p-6 lg:col-span-3">
+        <div className="card p-6 lg:col-span-3">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-[Poppins] text-base font-semibold text-navy dark:text-white">Patient Visits Trend</h2>
-            <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-white/5">
-              {(["Daily", "Weekly", "Monthly"] as const).map((r) => (
-                <button key={r} onClick={() => setRange(r)} className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${range === r ? "bg-white text-navy shadow dark:bg-navy dark:text-white" : "text-slate-400"}`}>{r}</button>
-              ))}
-            </div>
+            <span className="text-xs font-medium text-slate-400">Last 30 days</span>
           </div>
           {loading ? <Skeleton className="h-56 w-full" /> : trendData.length ? <AreaChart data={trendData.map((t) => t.count)} labels={trendData.map((t) => t.day)} /> : <EmptyState text="No visit data yet" />}
         </div>
-        <div className="card lift p-6 lg:col-span-2">
+        <div className="card p-6 lg:col-span-2">
           <h2 className="mb-4 font-[Poppins] text-base font-semibold text-navy dark:text-white">Patients by Department</h2>
           {loading ? <Skeleton className="h-40 w-full" /> : donut.length ? <DonutChart data={donut} /> : <EmptyState text="No department data yet" />}
         </div>
       </div>
 
-      {/* ========== PHARMACY + INVENTORY ========== */}
-      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="card lift p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-[Poppins] text-base font-semibold text-navy dark:text-white">
-              <Pill className="h-4 w-4 text-cyan" /> Pharmacy Overview
-            </h2>
-            <Link href="/pharmacy" className="text-xs font-semibold text-cyan hover:underline">Open Pharmacy →</Link>
-          </div>
-          {!rxData ? (
-            <Skeleton className="h-32 w-full" />
-          ) : (
-            <>
-              <div className="mb-4 grid grid-cols-3 gap-2">
-                <StatusChip icon={Clock} label="Pending" count={pendingRx.length} color="#d48040" />
-                <StatusChip icon={Loader2} label="Dispensing" count={dispensingRx.length} color="#c9955a" />
-                <StatusChip icon={CheckCircle2} label="Collected" count={collectedRx.length} color="#7a9e7e" />
-              </div>
-              {pendingRx.length > 0 ? (
-                <div className="space-y-2">
-                  {pendingRx.slice(0, 3).map((rx) => (
-                    <div key={rx.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-xs dark:border-white/10">
-                      <span className="truncate font-medium text-slate-600 dark:text-slate-300">{rx.patientName}</span>
-                      <span className="text-slate-400">{rx.medications.length} item{rx.medications.length === 1 ? "" : "s"}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-xs text-slate-400 py-4">No prescriptions pending dispensing</p>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="card lift p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-[Poppins] text-base font-semibold text-navy dark:text-white">
-              <PackageSearch className="h-4 w-4 text-cyan" /> Inventory Health
-            </h2>
-          </div>
-          {!invData ? (
-            <Skeleton className="h-32 w-full" />
-          ) : inventory.length === 0 ? (
-            <EmptyState text="No inventory data yet" />
-          ) : (
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-around">
-              <Gauge value={inventoryHealth} />
-              <div className="w-full space-y-1.5 sm:max-w-[180px]">
-                {lowStock.length > 0 ? (
-                  <>
-                    <p className="text-xs font-semibold text-navy dark:text-white">{lowStock.length} item{lowStock.length === 1 ? "" : "s"} require attention</p>
-                    {lowStock.slice(0, 3).map((i) => (
-                      <div key={i.id} className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                        <span className="truncate">{i.name}</span>
-                        <span className="font-mono text-danger">{i.stock}</span>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <p className="text-xs text-slate-400">All medicines are within healthy stock levels.</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ========== AI RECOMMENDATIONS ========== */}
-      <div className="mb-8 ai-glow rounded-[20px] p-6 lg:p-8">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan to-mint">
-              <Brain className="h-5 w-5 text-navy" />
-            </div>
-            <div>
-              <h2 className="font-[Poppins] text-lg font-bold text-navy dark:text-white">AI Clinical Assistant</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Clinical insights derived from your data</p>
-            </div>
-          </div>
-          <Badge color="cyan">● Live</Badge>
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {aiInsights.map((insight, i) => (
-            <Link
-              key={i}
-              href={insight.href}
-              className="card-premium lift group relative block cursor-pointer overflow-hidden rounded-2xl p-5 animate-fade-up"
-              style={{ animationDelay: `${i * 100 + 100}ms` }}
-            >
-              <div className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: `radial-gradient(circle at 50% 0%, ${insight.color}22, transparent 70%)` }} />
-              <div className="relative">
-                <div className="mb-3 flex items-start justify-between">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl icon-rotate" style={{ background: `${insight.color}22` }}>
-                    <insight.icon className="h-5 w-5" style={{ color: insight.color }} />
-                  </div>
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" style={{ background: `${insight.color}22`, color: insight.color }}>{insight.priority}</span>
-                </div>
-                <h3 className="mb-1 font-semibold text-navy dark:text-white">{insight.title}</h3>
-                <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{insight.desc}</p>
-                <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-navy dark:text-cyan group-hover:gap-2 transition-all">
-                  Review <ArrowRight className="h-3 w-3" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* ========== ACTIVITY + CONSULTATIONS ========== */}
-      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="card lift p-6">
-          <h2 className="mb-4 font-[Poppins] text-base font-semibold text-navy dark:text-white">Recent Clinical Activity</h2>
-          <div className="space-y-3">
-            {loading ? [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full" />) :
-              data?.recent.length ? data.recent.map((a, i) => (
-                <div key={a.id} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 transition hover:border-mint/30 hover:bg-mint/5 dark:border-white/5 dark:hover:bg-mint/10 animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: a.urgency === "critical" ? "#c25d5d" : a.urgency === "warning" ? "#d48040" : "#7a9e7e" }} />
-                  <div className="min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-navy dark:text-white">{a.patientName}</span>
-                    <span className="text-sm text-slate-500 dark:text-slate-400"> {a.action}</span>
-                  </div>
-                  <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.createdAt)}</span>
-                </div>
-              )) : <EmptyState text="No recent activity" />}
-          </div>
-        </div>
-
-        <div className="card lift p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-[Poppins] text-base font-semibold text-navy dark:text-white">
-              <ClipboardList className="h-4 w-4 text-cyan" /> Recent Consultations
-            </h2>
-          </div>
-          {!recData ? (
-            <Skeleton className="h-32 w-full" />
-          ) : recentRecords.length > 0 ? (
-            <div className="space-y-2">
-              {recentRecords.map((r) => (
-                <Link key={r.id} href={`/patients/${r.patientId}`} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 transition hover:border-mint/30 hover:bg-mint/5 dark:border-white/5 dark:hover:bg-mint/10">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy/10 text-xs font-bold text-navy dark:bg-white/10 dark:text-white">
-                    {initials(r.patientName)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-navy dark:text-white">{r.patientName}</div>
-                    <div className="truncate text-xs text-slate-400">{r.diagnosis || r.chiefComplaint || "Consultation recorded"} · Dr. {r.doctorName.replace(/^Dr\.\s*/, "")}</div>
-                  </div>
-                  <span className="shrink-0 text-xs text-slate-400">{timeAgo(r.createdAt)}</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <EmptyState text="No consultations recorded yet" />
-          )}
-        </div>
-      </div>
-
-      {/* ========== QUICK ACTIONS ========== */}
+      {/* ========== QUICK ACTIONS DOCK ========== */}
       <div>
-        <SectionHeading>Quick Actions</SectionHeading>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <QuickAction href="/emr" icon={FileText} color="#1f3d3a" title="New Consultation" desc="Start an EMR record for a patient" />
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Quick Actions</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <QuickAction href="/emr" icon={FileText} color="#1f3d3a" title="New Consultation" desc="Start a new clinical encounter" />
           <QuickAction href="/patients" icon={Users} color="#7a9e7e" title="Patients" desc="Browse and manage patient records" />
           <QuickAction href="/pharmacy" icon={Pill} color="#c9955a" title="Pharmacy" desc="Dispense prescriptions and view stock" />
-          <QuickAction href="/analytics" icon={BarChart3} color="#d48040" title="AI Recommendations" desc="Review clinical insights and analytics" />
+          <QuickAction href="/analytics" icon={BarChart3} color="#d48040" title="Analytics" desc="Review clinical insights and trends" />
         </div>
       </div>
     </Shell>
   );
 }
 
-/* ---------------- Section heading ---------------- */
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">{children}</h2>;
-}
-
-/* ---------------- KPI card (Key Clinical Metrics) ---------------- */
-function MetricCard({
+/* ---------------- Hero glance metric ---------------- */
+function GlanceMetric({
   icon: Icon, color, label, value, loading, sub,
 }: {
   icon: React.ElementType; color: string; label: string; value: number; loading: boolean; sub: string;
 }) {
   return (
-    <div className="card lift p-5">
-      <div className="flex items-center justify-between">
-        <div className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: `${color}18` }}>
-          <Icon className="h-5 w-5" style={{ color }} />
+    <div className="flex items-start gap-3">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}18` }}>
+        <Icon className="h-4.5 w-4.5" style={{ color }} />
+      </div>
+      <div className="min-w-0">
+        <div className="font-mono text-2xl font-bold text-navy dark:text-white">
+          {loading ? <Skeleton className="h-7 w-10" /> : <Counter value={value} />}
         </div>
+        <div className="truncate text-xs font-medium text-slate-600 dark:text-slate-300">{label}</div>
+        <div className="truncate text-[11px] text-slate-400">{sub}</div>
       </div>
-      <div className="mt-3 font-mono text-2xl font-bold text-navy dark:text-white">
-        {loading ? <Skeleton className="h-8 w-14" /> : <Counter value={value} />}
-      </div>
-      <div className="mt-0.5 text-sm font-medium text-slate-600 dark:text-slate-300">{label}</div>
-      <div className="text-xs text-slate-400">{sub}</div>
     </div>
   );
 }
 
-/* ---------------- Pharmacy status chip ---------------- */
-function StatusChip({ icon: Icon, label, count, color }: { icon: React.ElementType; label: string; count: number; color: string }) {
+/* ---------------- Secondary mini stat ---------------- */
+function MiniStat({ icon: Icon, color, label, value, loading }: { icon: React.ElementType; color: string; label: string; value: number; loading: boolean }) {
   return (
-    <div className="rounded-xl border border-slate-100 p-3 text-center dark:border-white/10">
-      <Icon className="mx-auto h-4 w-4" style={{ color }} />
-      <div className="mt-1 font-mono text-lg font-bold text-navy dark:text-white">{count}</div>
-      <div className="text-[10px] uppercase tracking-wide text-slate-400">{label}</div>
+    <div className="flex flex-1 items-center gap-3 sm:px-4 first:sm:pl-0 last:sm:pr-0">
+      <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+      <div>
+        <div className="font-mono text-sm font-bold text-navy dark:text-white">{loading ? <Skeleton className="inline-block h-4 w-6" /> : value}</div>
+        <div className="text-xs text-slate-400">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Medication workflow step ---------------- */
+function WorkflowStep({ label, count, color }: { label: string; count: number; color: string }) {
+  return (
+    <div className="text-center">
+      <div className="font-mono text-xl font-bold text-navy dark:text-white">{count}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>{label}</div>
     </div>
   );
 }
@@ -468,8 +478,8 @@ function StatusChip({ icon: Icon, label, count, color }: { icon: React.ElementTy
 /* ---------------- Quick action card ---------------- */
 function QuickAction({ href, icon: Icon, color, title, desc }: { href: string; icon: React.ElementType; color: string; title: string; desc: string }) {
   return (
-    <Link href={href} className="card lift group p-5">
-      <div className="grid h-10 w-10 place-items-center rounded-xl icon-rotate" style={{ background: `${color}18` }}>
+    <Link href={href} className="card lift group p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan">
+      <div className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: `${color}18` }}>
         <Icon className="h-5 w-5" style={{ color }} />
       </div>
       <div className="mt-3 font-semibold text-navy dark:text-white">{title}</div>
