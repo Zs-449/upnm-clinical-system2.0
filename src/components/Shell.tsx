@@ -88,7 +88,7 @@ export default function Shell({ children }: { children: ReactNode }) {
 
   const doLogout = useCallback(() => {
     clearSession();
-    router.replace("/");
+    router.replace("/login");
   }, [router]);
 
   const resetInactivityTimer = useCallback(() => {
@@ -125,14 +125,14 @@ export default function Shell({ children }: { children: ReactNode }) {
     inactivityTimerRef.current = setTimeout(() => {
       clearSession();
       toast("You have been logged out due to inactivity.", "error");
-      setTimeout(() => router.replace("/"), 1500);
+      setTimeout(() => router.replace("/login"), 1500);
     }, INACTIVITY_LIMIT);
   }, [router]);
 
   useEffect(() => {
     const u = getSession();
     if (!u) {
-      router.replace("/");
+      router.replace("/login");
       return;
     }
     setUser(u);
