@@ -59,13 +59,15 @@ export default function LandingPage() {
     window.addEventListener("scroll", onScroll);
 
     // Simple scroll reveal observer
+    // rootMargin triggers reveal slightly before the section enters the viewport,
+    // so fast scrolling / slow JS hydration doesn't leave a visibly blank section.
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           setIsVisible(prev => ({ ...prev, [entry.target.id]: true }));
         }
       });
-    }, { threshold: 0.1 });
+    }, { threshold: 0.1, rootMargin: "0px 0px -10% 0px" });
 
     document.querySelectorAll('section[id]').forEach(section => observer.observe(section));
 
@@ -162,8 +164,8 @@ export default function LandingPage() {
             </h1>
             
             <p className="mt-8 max-w-2xl text-lg leading-relaxed text-white/60 lg:text-xl animate-fade-up" style={{ animationDelay: '500ms' }}>
-              The next generation of campus healthcare. One connected platform 
-              unifying appointments, EMR, and pharmacy into a seamless clinical ecosystem.
+              A single system for UPNM campus healthcare — appointments, electronic 
+              medical records, and pharmacy dispensing, connected end to end.
             </p>
             
             <div className="mt-12 flex flex-wrap items-center justify-center gap-6 animate-fade-up" style={{ animationDelay: '700ms' }}>
@@ -255,7 +257,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===================== ECOSYSTEM SECTION ===================== */}
-      <section id="ecosystem" className={`relative py-32 transition-all duration-1000 ${isVisible.ecosystem ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
+      <section id="ecosystem" className={`relative py-32 transition-all duration-500 ${isVisible.ecosystem ? 'opacity-100 translate-y-0' : 'opacity-60 translate-y-6'}`}>
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="mb-24 text-center">
             <h2 className="font-[Poppins] text-sm font-bold uppercase tracking-[0.4em] text-mint">Everything Connected</h2>
@@ -297,7 +299,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===================== ROLE-BASED EXPERIENCE ===================== */}
-      <section id="roles" className={`relative bg-white/40 py-32 dark:bg-black/10 transition-all duration-1000 ${isVisible.roles ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
+      <section id="roles" className={`relative bg-white/40 py-32 dark:bg-black/10 transition-all duration-500 ${isVisible.roles ? 'opacity-100 translate-y-0' : 'opacity-60 translate-y-6'}`}>
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="grid grid-cols-1 items-center gap-20 lg:grid-cols-2">
             <div>
@@ -456,22 +458,22 @@ export default function LandingPage() {
       </section>
 
       {/* ===================== INTELLIGENCE & SECURITY ===================== */}
-      <section id="intelligence" className={`relative py-32 transition-all duration-1000 ${isVisible.intelligence ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
+      <section id="intelligence" className={`relative py-32 transition-all duration-500 ${isVisible.intelligence ? 'opacity-100 translate-y-0' : 'opacity-60 translate-y-6'}`}>
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="flex flex-col items-center justify-between gap-20 lg:flex-row">
             <div className="max-w-xl">
-              <h2 className="font-[Poppins] text-sm font-bold uppercase tracking-[0.4em] text-mint">Smart Clinical Intelligence</h2>
+              <h2 className="font-[Poppins] text-sm font-bold uppercase tracking-[0.4em] text-mint">Clinical Decision Support</h2>
               <h3 className="mt-6 font-[Poppins] text-5xl font-extrabold tracking-tight text-navy dark:text-white lg:text-6xl">
-                Insight at every step.
+                Support at every step.
               </h3>
               <p className="mt-8 text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
-                Our AI engine works silently in the background, analyzing patterns to prioritize patient care 
-                and ensuring no critical detail is missed by the clinical team.
+                Pattern analysis runs in the background to help prioritize patient care, 
+                surfacing details a busy clinical team could otherwise miss.
               </p>
               
               <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2">
                 {[
-                  { icon: Sparkles, title: "AI Recommendations", desc: "Suggests treatment paths based on clinical history." },
+                  { icon: Sparkles, title: "Clinical Insights", desc: "Surfaces relevant history to support treatment decisions." },
                   { icon: Activity, title: "Clinical Alerts", desc: "Flags abnormal vital signs and lab results in real-time." },
                   { icon: Zap, title: "Real-time Queue", desc: "Optimizes patient flow and room allocation automatically." },
                   { icon: ShieldPlus, title: "History Analysis", desc: "Detects long-term patterns in student medical records." },
@@ -497,18 +499,18 @@ export default function LandingPage() {
                     <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-cyan to-mint text-navy shadow-lg shadow-cyan/20">
                       <Cpu className="h-7 w-7" />
                     </div>
-                    <div className="text-sm font-bold uppercase tracking-[0.2em] text-white">AI Engine</div>
+                    <div className="text-sm font-bold uppercase tracking-[0.2em] text-white">Clinical Intelligence</div>
                   </div>
-                  <div className="rounded-full bg-cyan/20 px-4 py-1.5 text-[10px] font-bold text-cyan border border-cyan/30">ACTIVE</div>
+                  <div className="rounded-full bg-cyan/20 px-4 py-1.5 text-[10px] font-bold text-cyan border border-cyan/30">Monitoring</div>
                 </div>
                 <div className="space-y-6">
                   <div className="rounded-[24px] border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-500 hover:bg-white/10">
                     <div className="flex items-center gap-3 mb-3">
                       <ShieldPlus className="h-5 w-5 text-cyan" />
-                      <div className="text-[11px] font-bold text-cyan uppercase tracking-widest">Insight Detected</div>
+                      <div className="text-[11px] font-bold text-cyan uppercase tracking-widest">Flagged for Review</div>
                     </div>
                     <div className="text-sm leading-relaxed text-white/80">
-                      Patient #8472 shows consistent blood pressure elevation. Suggesting immediate cardiovascular screening.
+                      Patient #8472 shows a sustained blood pressure trend across recent visits. Flagged for clinician review.
                     </div>
                   </div>
                   <div className="rounded-[24px] border border-white/10 bg-white/5 p-6 backdrop-blur-md transition-all duration-500 hover:bg-white/10">
@@ -527,7 +529,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="security" className={`relative bg-navy py-32 text-white dark:bg-black/20 transition-all duration-1000 ${isVisible.security ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
+      <section id="security" className={`relative bg-navy py-32 text-white dark:bg-black/20 transition-all duration-500 ${isVisible.security ? 'opacity-100 translate-y-0' : 'opacity-60 translate-y-6'}`}>
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="text-center mb-24">
             <h2 className="font-[Poppins] text-sm font-bold uppercase tracking-[0.4em] text-cyan">Security & Trust</h2>
