@@ -71,7 +71,12 @@ const TRANSLATIONS = {
       preview_kpi_health: "System Health",
       preview_inv_alert: "Inventory Alert",
       preview_low_stock: "LOW STOCK",
-      preview_remaining: "units remaining"
+      preview_remaining: "units remaining",
+      preview_consultation: "General Consultation",
+      preview_doctor_time: "Dr. Sarah · Today, 10:30 AM",
+      preview_waiting_mins: "Waiting for 14 mins",
+      preview_ai_note: "Review lab results for patient #0842. Potassium flagged as high.",
+      preview_drug_name: "Paracetamol 500mg"
     },
     intelligence: {
       badge: "Clinical Decision Support",
@@ -99,7 +104,7 @@ const TRANSLATIONS = {
     ready: {
       badge: "Ready to Access?",
       title: "The Future of Campus Healthcare.",
-      desc: "Enter the UPNM clinical command center and experience the next generation of healthcare management.",
+      desc: "Enter the UPNM clinical command center — appointments, records, and pharmacy, all in one place.",
       btn: "Access Clinical System",
       secure: "Secure Role-Based Access Verified"
     },
@@ -164,7 +169,12 @@ const TRANSLATIONS = {
       preview_kpi_health: "Kesihatan Sistem",
       preview_inv_alert: "Amaran Inventori",
       preview_low_stock: "STOK RENDAH",
-      preview_remaining: "unit berbaki"
+      preview_remaining: "unit berbaki",
+      preview_consultation: "Konsultasi Am",
+      preview_doctor_time: "Dr. Sarah · Hari ini, 10:30 PG",
+      preview_waiting_mins: "Menunggu selama 14 minit",
+      preview_ai_note: "Semak keputusan makmal untuk pesakit #0842. Potasium ditandakan tinggi.",
+      preview_drug_name: "Paracetamol 500mg"
     },
     intelligence: {
       badge: "Sokongan Keputusan Klinikal",
@@ -192,7 +202,7 @@ const TRANSLATIONS = {
     ready: {
       badge: "Sedia untuk Akses?",
       title: "Masa Depan Penjagaan Kesihatan Kampus.",
-      desc: "Masuk ke pusat perintah klinikal UPNM dan alami pengurusan penjagaan kesihatan generasi akan datang.",
+      desc: "Masuk ke pusat perintah klinikal UPNM — temu janji, rekod, dan farmasi, semuanya di satu tempat.",
       btn: "Akses Sistem Klinikal",
       secure: "Akses Berasaskan Peranan Selamat Disahkan"
     },
@@ -233,6 +243,7 @@ export default function LandingPage() {
   // --- BILINGUAL & THEME STATE ---
   const [lang, setLang] = useState<"en" | "ms">("en");
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = TRANSLATIONS[lang];
 
   useEffect(() => {
@@ -284,7 +295,11 @@ export default function LandingPage() {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
     }
-    toast(next ? "Dark mode activated" : "Light mode activated");
+    toast(
+      next
+        ? (lang === "en" ? "Dark mode activated" : "Mod gelap diaktifkan")
+        : (lang === "en" ? "Light mode activated" : "Mod cerah diaktifkan")
+    );
   };
 
   const toggleLang = () => {
@@ -345,10 +360,57 @@ export default function LandingPage() {
               <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
             </Link>
           </div>
-          <button className="md:hidden">
-            <Menu className="h-6 w-6" />
+          <button
+            className="md:hidden grid h-9 w-9 place-items-center rounded-full border border-navy/10 bg-navy/5 dark:border-white/10 dark:bg-white/5"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label="Toggle menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <CloseIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
+
+        {/* Mobile menu panel */}
+        {mobileMenuOpen && (
+          <div className="md:hidden mx-6 mt-3 flex flex-col gap-2 rounded-3xl border border-navy/10 bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0f1f1a]/95">
+            {["Ecosystem", "Roles", "Intelligence", "Security"].map((item) => (
+              <button
+                key={item}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  document.getElementById(item.toLowerCase())?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="rounded-xl px-3 py-3 text-left text-xs font-bold uppercase tracking-widest text-slate-500 hover:bg-navy/5 dark:text-slate-400 dark:hover:bg-white/5"
+              >
+                {t.nav[item.toLowerCase() as keyof typeof t.nav]}
+              </button>
+            ))}
+
+            <div className="mt-2 flex items-center gap-3 border-t border-navy/5 pt-4 dark:border-white/5">
+              <button
+                onClick={toggleLang}
+                className="flex flex-1 items-center justify-center gap-2 rounded-full border border-navy/10 bg-navy/5 px-3 py-2.5 text-[11px] font-bold uppercase tracking-widest dark:border-white/10 dark:bg-white/5"
+              >
+                <Globe className="h-3.5 w-3.5 text-mint" />
+                {lang === "en" ? "EN" : "BM"}
+              </button>
+              <button
+                onClick={toggleTheme}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-navy/10 bg-navy/5 dark:border-white/10 dark:bg-white/5"
+              >
+                {isDarkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-navy" />}
+              </button>
+            </div>
+
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="mt-2 rounded-full bg-navy px-8 py-3 text-center text-xs font-bold uppercase tracking-widest text-white dark:bg-mint"
+            >
+              {t.nav.access}
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* ===================== HERO SECTION ===================== */}
@@ -571,8 +633,8 @@ export default function LandingPage() {
                           <CalendarCheck className="h-6 w-6" />
                         </div>
                         <div>
-                          <div className="text-sm font-bold">General Consultation</div>
-                          <div className="text-xs text-slate-400">Dr. Sarah · Today, 10:30 AM</div>
+                          <div className="text-sm font-bold">{t.roles.preview_consultation}</div>
+                          <div className="text-xs text-slate-400">{t.roles.preview_doctor_time}</div>
                         </div>
                       </div>
                     </div>
@@ -590,7 +652,7 @@ export default function LandingPage() {
                         <div className="grid h-20 w-20 place-items-center rounded-2xl bg-gradient-to-br from-mint to-cyan text-2xl font-bold text-navy shadow-lg shadow-mint/20">#08</div>
                         <div>
                           <div className="text-xl font-extrabold text-navy dark:text-white">Ahmad Firdaus</div>
-                          <div className="text-xs text-slate-400">Waiting for 14 mins</div>
+                          <div className="text-xs text-slate-400">{t.roles.preview_waiting_mins}</div>
                         </div>
                       </div>
                       <div className="mt-8 grid grid-cols-2 gap-4">
@@ -610,7 +672,7 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <div className="text-sm font-bold text-navy dark:text-white">{t.intelligence.feature1}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Review lab results for patient #0842. Potassium flagged as high.</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{t.roles.preview_ai_note}</div>
                       </div>
                     </div>
                   </div>
@@ -636,7 +698,7 @@ export default function LandingPage() {
                         <span className="text-[11px] font-bold uppercase tracking-[0.3em]">{t.roles.preview_inv_alert}</span>
                       </div>
                       <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm font-bold text-navy dark:text-white">Paracetamol 500mg</div>
+                        <div className="text-sm font-bold text-navy dark:text-white">{t.roles.preview_drug_name}</div>
                         <div className="rounded-full bg-danger/20 px-3 py-1 text-[10px] font-bold text-danger">{t.roles.preview_low_stock}</div>
                       </div>
                       <div className="mt-4 h-2 w-full rounded-full bg-navy/5 dark:bg-white/5 overflow-hidden">
