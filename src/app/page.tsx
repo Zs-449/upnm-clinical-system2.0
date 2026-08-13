@@ -492,7 +492,7 @@ export default function LandingPage() {
             </div>
 
             <div className="relative w-full max-w-md rounded-[40px] bg-navy p-10 dark:bg-black/20 overflow-hidden shadow-[0_60px_100px_-20px_rgba(31,61,58,0.4)]">
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan/20 via-transparent to-mint/20" />
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan/20 via-transparent to-mint/10" />
               <div className="relative z-10">
                 <div className="mb-8 flex items-center justify-between">
                   <div className="flex items-center gap-4">
