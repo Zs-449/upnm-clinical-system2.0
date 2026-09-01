@@ -5,23 +5,12 @@ import { useApi } from "@/lib/useApi";
 import { Badge, statusColor, Button, Modal, Skeleton, toast } from "@/components/ui";
 import { ChevronLeft, ChevronRight, Plus, Stethoscope, HeartPulse, Cross, Brain, CheckCircle2, QrCode } from "lucide-react";
 import { useMemo, useState } from "react";
+import { DEPTS as DEPTS_BASE, DOCTORS, SLOTS, DEPT_COLORS } from "@/lib/clinic";
 
 interface Appt { id: number; patientName: string; doctorName: string; department: string; date: string; time: string; status: string; urgency: string; queueNumber: number | null; }
 
-const DEPTS = [
-  { name: "General", icon: Stethoscope, color: "#1f3d3a", desc: "Fever, cough, general checkup" },
-  { name: "Dental", icon: Cross, color: "#7a9e7e", desc: "Toothache, cleaning, oral care" },
-  { name: "Mental Health", icon: Brain, color: "#c9955a", desc: "Counselling & wellbeing" },
-  { name: "Emergency", icon: HeartPulse, color: "#c25d5d", desc: "Urgent medical attention" },
-];
-const DOCTORS = [
-  { name: "Dr. Aisyah Karim", spec: "General Medicine", rating: 4.9 },
-  { name: "Dr. Hakim Rashid", spec: "Dental Surgery", rating: 4.7 },
-  { name: "Dr. Lim Wei", spec: "Psychiatry", rating: 4.8 },
-  { name: "Dr. Siti Aminah", spec: "Emergency Med", rating: 4.9 },
-];
-const SLOTS = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00"];
-const DEPT_COLORS: Record<string, string> = { General: "#1f3d3a", Dental: "#7a9e7e", "Mental Health": "#c9955a", Emergency: "#c25d5d" };
+const DEPT_ICONS: Record<string, typeof Stethoscope> = { General: Stethoscope, Dental: Cross, "Mental Health": Brain, Emergency: HeartPulse };
+const DEPTS = DEPTS_BASE.map((d) => ({ ...d, icon: DEPT_ICONS[d.name] }));
 
 export default function AppointmentsPage() {
   const { data, loading, reload } = useApi<{ appointments: Appt[] }>("/api/appointments");
