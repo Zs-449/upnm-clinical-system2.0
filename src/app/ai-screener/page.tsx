@@ -1,7 +1,7 @@
 "use client";
 
 import Shell from "@/components/Shell";
-import { Bot, Send, User, Stethoscope, CalendarDays, Clock3, CheckCircle2, MapPin, CalendarPlus } from "lucide-react";
+import { Send, User, Stethoscope, CalendarDays, Clock3, CheckCircle2, MapPin, CalendarPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
@@ -278,14 +278,14 @@ export default function AiScreenerPage() {
 
       <div className="mx-auto flex max-w-2xl flex-col card overflow-hidden" style={{ height: "72vh" }}>
         <div className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-navy to-[#2d5551] p-4 text-white dark:border-white/10">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-white/15"><Bot className="h-6 w-6 text-cyan" /></div>
+          <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-white/15"><img src="/images/upnm-clinic-bot-transparent.png" alt="MediBot" className="h-full w-full object-contain" /></div>
           <div><div className="font-bold">MediBot</div><div className="flex items-center gap-1 text-xs text-white/60"><span className="h-1.5 w-1.5 rounded-full bg-mint pulse-dot" /> Online</div></div>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {msgs.map((m) => (
             <div key={m.id} className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : ""} animate-fade-up`}>
-              <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${m.role === "bot" ? "bg-navy text-cyan" : "bg-mint text-white"}`}>{m.role === "bot" ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}</div>
+              <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${m.role === "bot" ? "bg-navy text-cyan" : "bg-mint text-white"}`}>{m.role === "bot" ? <img src="/images/upnm-clinic-bot-transparent.png" alt="MediBot" className="h-8 w-8 object-contain" /> : <User className="h-4 w-4" />}</div>
               <div className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-sm ${m.role === "bot" ? "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200" : "bg-mint text-white"}`}>
                 {m.text && <p className="whitespace-pre-line">{m.text}</p>}
 
@@ -379,7 +379,7 @@ export default function AiScreenerPage() {
           ))}
           {typing && (
             <div className="flex gap-2 animate-fade-in">
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-navy text-cyan"><Bot className="h-4 w-4" /></div>
+              <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-navy"><img src="/images/upnm-clinic-bot-transparent.png" alt="MediBot is typing" className="h-full w-full object-contain" /></div>
               <div className="flex items-center gap-1 rounded-2xl bg-slate-100 px-4 py-3 dark:bg-white/10">{[0, 1, 2].map((i) => <span key={i} className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
             </div>
           )}
