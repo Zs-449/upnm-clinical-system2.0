@@ -1,14 +1,31 @@
 import { db } from "@/db";
 import { appointments, activities } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
+import { buildAvailability, doctorByName, isBookableSlot, isClinicOpen, isValidDateString } from "@/lib/availability";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const rows = await db
     .select()
     .from(appointments)
     .orderBy(desc(appointments.date), appointments.time);
+
+  const url = new URL(req.url);
+  const date = url.searchParams.get("date");
+  const department = url.searchParams.get("department") || undefined;
+  const doctorName = url.searchParams.get("doctor") || undefined;
+  const period = (url.searchParams.get("period") || "any") as "morning" | "afternoon" | "any";
+
+  if (date) {
+    return Response.json({
+      appointments: rows,
+      date,
+      open: isClinicOpen(date),
+      doctors: buildAvailability(date, rows, department, doctorName, period),
+    });
+  }
+
   return Response.json({ appointments: rows });
 }
 
@@ -64,8 +81,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // Prevent double-booking: the same doctor cannot have two appointments
-    // at the same date + time (unless the earlier one was cancelled).
+    const doctor = doctorByName(String(body.doctorName || ""));
+    if (!doctor || doctor.department !== body.department) {
+      return Response.json({ ok: false, error: "Please choose a valid doctor for this department." }, { status: 400 });
+    }
+    if (!isValidDateString(body.date) || !isClinicOpen(body.date)) {
+      return Response.json({ ok: false, error: "Appointments are available Monday to Friday. Please choose an open clinic date." }, { status: 400 });
+    }
+
+    // Prevent double-booking and keep all booking paths connected to the same availability rules.
+    const currentAppointments = await db.select().from(appointments);
+    if (!isBookableSlot(body.date, doctor.name, body.time, currentAppointments)) {
+      return Response.json({ ok: false, error: `${doctor.name} is not available at ${body.time} on ${body.date}. Please choose another slot.` }, { status: 409 });
+    }
     const clash = await db
       .select()
       .from(appointments)
