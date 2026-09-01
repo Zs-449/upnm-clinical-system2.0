@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { toast } from "@/components/ui";
-import { DOCTORS, doctorForDepartment } from "@/lib/clinic";
+import { slotsForPeriod } from "@/lib/clinic";
 
 interface Analysis { conditions: string[]; department: string; urgency: string; advice: string }
 type Stage = "chat" | "askDate" | "askPeriod" | "askSlot" | "confirm";
@@ -88,7 +88,7 @@ export default function AiScreenerPage() {
   const [lastAnalysis, setLastAnalysis] = useState<Analysis | null>(null);
   const [symptomText, setSymptomText] = useState("");
   const [stage, setStage] = useState<Stage>("chat");
-  const [booking, setBooking] = useState<{ department: string; date: string; time: string }>({ department: "", date: "", time: "" });
+  const [booking, setBooking] = useState<{ department: string; doctor: string; date: string; time: string }>({ department: "", doctor: "", date: "", time: "" });
   const [confirming, setConfirming] = useState(false);
   const [patientName, setPatientName] = useState("");
 
@@ -144,7 +144,7 @@ export default function AiScreenerPage() {
     resolveBookingChoice(promptId);
     pushUser("Yes, help me book");
     const department = lastAnalysis?.department || "General";
-    setBooking({ department, date: "", time: "" });
+    setBooking({ department, doctor: "", date: "", time: "" });
     setTyping(true);
     await delay(500);
     setTyping(false);
@@ -188,19 +188,22 @@ export default function AiScreenerPage() {
 
   async function loadSlots(period: "morning" | "afternoon" | "any") {
     const department = booking.department || lastAnalysis?.department || "General";
-    const doctor = doctorForDepartment(department) ?? DOCTORS[0];
+    let doctorName = booking.doctor;
     let available: string[] = [];
     try {
-      const params = new URLSearchParams({ date: booking.date, doctor: doctor.name, period });
-      const res = await fetch(`/api/appointments?${params.toString()}`);
+      const res = await fetch(`/api/appointments?available=1&date=${booking.date}&department=${encodeURIComponent(department)}`);
       const data = await res.json();
-      available = data.doctors?.[0]?.slots ?? [];
+      const doctors = (data.doctors ?? []) as { name: string; slots: string[] }[];
+      const doctor = doctors.find((item) => item.name === booking.doctor) ?? doctors[0];
+      doctorName = doctor?.name ?? "";
+      available = slotsForPeriod(period).filter((slot) => doctor?.slots.includes(slot));
+      if (!booking.doctor && doctorName) setBooking((current) => ({ ...current, doctor: doctorName }));
     } catch {
       available = [];
     }
     setTyping(false);
     if (available.length === 0) {
-      pushBot({ text: `${doctor.name} is fully booked on ${booking.date}. Would you like to try a different date instead?`, dateHelp: true });
+      pushBot({ text: `${doctorName || "No Medical Officer"} has no available slots on ${booking.date}. Would you like to try a different date instead?`, dateHelp: true });
       setStage("askDate");
       return;
     }
@@ -210,19 +213,19 @@ export default function AiScreenerPage() {
 
   function pickSlot(time: string) {
     const department = booking.department || lastAnalysis?.department || "General";
-    const doctor = doctorForDepartment(department) ?? DOCTORS[0];
+    const doctor = booking.doctor;
     pushUser(time);
     setBooking((b) => ({ ...b, time }));
     pushBot({
       text: "Appointment Summary",
-      summary: { department, doctor: doctor.name, date: booking.date, time },
+      summary: { department, doctor, date: booking.date, time },
     });
     setStage("confirm");
   }
 
   async function confirmAppointment() {
     const department = booking.department || lastAnalysis?.department || "General";
-    const doctor = doctorForDepartment(department) ?? DOCTORS[0];
+    const doctor = booking.doctor;
     setConfirming(true);
     try {
       const res = await fetch("/api/appointments", {
@@ -230,7 +233,7 @@ export default function AiScreenerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientName,
-          doctorName: doctor.name,
+          doctorName: doctor,
           department,
           date: booking.date,
           time: booking.time,
@@ -246,10 +249,10 @@ export default function AiScreenerPage() {
         setStage("askDate");
         return;
       }
-      pushBot({ text: "Appointment confirmed successfully.", confirmed: true, summary: { department, doctor: doctor.name, date: booking.date, time: booking.time } });
+      pushBot({ text: "Appointment confirmed successfully.", confirmed: true, summary: { department, doctor, date: booking.date, time: booking.time } });
       toast("Appointment confirmed!", "success");
       setStage("chat");
-      setBooking({ department: "", date: "", time: "" });
+      setBooking({ department: "", doctor: "", date: "", time: "" });
     } catch {
       setConfirming(false);
       toast("Network error. Please try again.", "error");
