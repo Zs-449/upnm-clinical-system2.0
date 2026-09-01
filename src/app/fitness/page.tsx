@@ -37,10 +37,10 @@ export default function FitnessPage() {
 
       {/* Rank progression */}
       <div className="card mb-5 overflow-hidden">
-        <div className="bg-gradient-to-r from-navy to-[#2d5551] p-6 text-white">
+        <div className="relative overflow-hidden bg-gradient-to-r from-navy via-[#2d5551] to-navy bg-[length:200%_100%] p-6 text-white animated-gradient">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 text-3xl">🎖️</div>
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 text-3xl animate-float motion-reduce:animate-none">🎖️</div>
               <div>
                 <div className="text-xs text-white/60">Current Fitness Rank</div>
                 <div className="font-[Poppins] text-2xl font-extrabold">{rank.name}</div>
