@@ -3,9 +3,8 @@
 import Shell from "@/components/Shell";
 import { useApi } from "@/lib/useApi";
 import { Badge, statusColor, Button, Skeleton } from "@/components/ui";
-import { getSession } from "@/lib/session";
 import { FileText, Download, Calendar, User, Stethoscope, ShieldCheck, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface MC {
   id: number;
@@ -25,12 +24,6 @@ interface MC {
 export default function MCPage() {
   const { data, loading } = useApi<{ certificates: MC[] }>("/api/medical-certificates");
   const [selected, setSelected] = useState<MC | null>(null);
-  const [name, setName] = useState("Cadet");
-
-  useEffect(() => {
-    const u = getSession();
-    if (u) setName(u.name);
-  }, []);
 
   const certs = data?.certificates ?? [];
   const activeCerts = certs.filter((c) => c.status === "Active");
