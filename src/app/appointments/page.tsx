@@ -4,7 +4,7 @@ import Shell from "@/components/Shell";
 import { useApi } from "@/lib/useApi";
 import { Badge, statusColor, Button, Modal, Skeleton, toast } from "@/components/ui";
 import { ChevronLeft, ChevronRight, Plus, Stethoscope, HeartPulse, Cross, Brain, CheckCircle2, QrCode } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DEPTS as DEPTS_BASE, DOCTORS, SLOTS, DEPT_COLORS } from "@/lib/clinic";
 
 interface Appt { id: number; patientName: string; doctorName: string; department: string; date: string; time: string; status: string; urgency: string; queueNumber: number | null; }
@@ -19,7 +19,9 @@ export default function AppointmentsPage() {
   const [step, setStep] = useState(1);
   const [sel, setSel] = useState({ department: "", doctor: "", date: "", time: "", symptoms: "", urgency: "Routine", patientName: "", patientAge: "21", patientGender: "Male", patientBloodType: "O+", patientPhone: "", patientEmail: "" });
   const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
+    const [done, setDone] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
 
   const todayStr = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"})).toLocaleDateString('en-CA');
   const days = useMemo(() => {
@@ -38,7 +40,28 @@ export default function AppointmentsPage() {
     return map;
   }, [data]);
 
-  const symptomChips = ["Fever", "Cough", "Headache", "Sore throat", "Fatigue", "Nausea", "Body ache"];
+    const symptomChips = ["Fever", "Cough", "Headache", "Sore throat", "Fatigue", "Nausea", "Body ache"];
+
+  useEffect(() => {
+    if (!sel.date || !sel.doctor) return;
+    let cancelled = false;
+    fetch(`/api/appointments?date=${encodeURIComponent(sel.date)}&doctor=${encodeURIComponent(sel.doctor)}`)
+      .then((res) => res.json())
+      .then((result: { open?: boolean; doctors?: Array<{ slots: string[] }> }) => {
+        if (cancelled) return;
+        const slots = result.doctors?.[0]?.slots ?? [];
+        setAvailableSlots(slots);
+        setAvailabilityMessage(result.open === false ? "The clinic is closed on weekends. Choose a weekday." : slots.length ? "" : "This doctor is fully booked on the selected date.");
+        if (!slots.includes(sel.time)) setSel((current) => ({ ...current, time: "" }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailableSlots([]);
+          setAvailabilityMessage("Availability could not be loaded. Please try again.");
+        }
+      })
+    return () => { cancelled = true; };
+  }, [sel.date, sel.doctor, sel.time]);
 
   async function confirm() {
     setSaving(true);
@@ -48,7 +71,7 @@ export default function AppointmentsPage() {
     if (d.ok) { setDone(true); reload(); } else toast(d.error || "Booking failed", "error");
   }
 
-  function reset() { setBooking(false); setStep(1); setDone(false); setSel({ department: "", doctor: "", date: "", time: "", symptoms: "", urgency: "Routine", patientName: "", patientAge: "21", patientGender: "Male", patientBloodType: "O+", patientPhone: "", patientEmail: "" }); }
+  function reset() { setBooking(false); setStep(1); setDone(false); setAvailableSlots([]); setAvailabilityMessage(""); setSel({ department: "", doctor: "", date: "", time: "", symptoms: "", urgency: "Routine", patientName: "", patientAge: "21", patientGender: "Male", patientBloodType: "O+", patientPhone: "", patientEmail: "" }); }
 
   return (
     <Shell>
@@ -137,7 +160,7 @@ export default function AppointmentsPage() {
             )}
             {step === 2 && (
               <div className="grid grid-cols-2 gap-3 animate-fade-up">
-                {DOCTORS.map((doc) => (
+                                {DOCTORS.filter((doc) => doc.department === sel.department).map((doc) => (
                   <button key={doc.name} onClick={() => { setSel({ ...sel, doctor: doc.name }); setStep(3); }} className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition hover:-translate-y-1 ${sel.doctor === doc.name ? "border-mint bg-mint/5" : "border-slate-100 dark:border-white/10"}`}>
                     <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-navy to-mint text-sm font-bold text-white">{doc.name.split(" ")[1][0]}</div>
                     <div><div className="text-sm font-semibold text-navy dark:text-white">{doc.name}</div><div className="text-xs text-slate-400">{doc.spec} · ⭐ {doc.rating}</div></div>
@@ -148,14 +171,17 @@ export default function AppointmentsPage() {
             {step === 3 && (
               <div className="animate-fade-up">
                 <label className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Select Date</label>
-                <input type="date" min={todayStr} value={sel.date} onChange={(e) => setSel({ ...sel, date: e.target.value })} className="mb-4 w-full rounded-lg border border-navy/10 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-cyan dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                                <input type="date" min={todayStr} value={sel.date} onChange={(e) => setSel({ ...sel, date: e.target.value, time: "" })} className="mb-4 w-full rounded-lg border border-navy/10 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-cyan dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                {sel.date && sel.doctor && !availabilityMessage && availableSlots.length === 0 && <p className="mb-2 text-xs text-slate-400">Checking live availability…</p>}
+                {availabilityMessage && <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{availabilityMessage}</p>}
                 <label className="mb-2 block text-xs font-semibold text-slate-500 dark:text-slate-400">Available Slots {" "}<span className="text-mint">✦ Recommended (AI-optimized)</span></label>
                 <div className="grid grid-cols-4 gap-2">
-                  {SLOTS.map((t, i) => (
-                    <button key={t} onClick={() => setSel({ ...sel, time: t })} className={`relative rounded-lg border py-2 text-sm font-medium transition ${sel.time === t ? "border-mint bg-mint text-white" : "border-slate-200 text-slate-600 hover:border-cyan dark:border-white/10 dark:text-slate-300"}`}>
-                      {t}{i === 2 && <span className="absolute -right-1 -top-1 text-mint">✦</span>}
-                    </button>
-                  ))}
+                  {SLOTS.map((t, i) => {
+                    const isAvailable = availableSlots.includes(t);
+                    return <button key={t} disabled={!isAvailable} onClick={() => setSel({ ...sel, time: t })} className={`relative rounded-lg border py-2 text-sm font-medium transition ${sel.time === t ? "border-mint bg-mint text-white" : isAvailable ? "border-slate-200 text-slate-600 hover:border-cyan dark:border-white/10 dark:text-slate-300" : "cursor-not-allowed border-slate-100 text-slate-300 line-through dark:border-white/5 dark:text-slate-600"}`}>
+                      {t}{i === 2 && isAvailable && <span className="absolute -right-1 -top-1 text-mint">✦</span>}
+                    </button>;
+                  })}
                 </div>
               </div>
             )}
@@ -222,7 +248,7 @@ export default function AppointmentsPage() {
             <div className="mt-6 flex justify-between">
               <Button variant="ghost" onClick={() => (step > 1 ? setStep(step - 1) : reset())}>{step > 1 ? "Back" : "Cancel"}</Button>
               {step < 6 ? (
-                <Button disabled={(step === 1 && !sel.department) || (step === 2 && !sel.doctor) || (step === 3 && (!sel.date || !sel.time)) || (step === 4 && !sel.patientName.trim())} onClick={() => setStep(step + 1)}>Next →</Button>
+                <Button disabled={(step === 1 && !sel.department) || (step === 2 && !sel.doctor) || (step === 3 && (!sel.date || !sel.time || !availableSlots.includes(sel.time))) || (step === 4 && !sel.patientName.trim())} onClick={() => setStep(step + 1)}>Next →</Button>
               ) : (
                 <Button variant="mint" loading={saving} onClick={confirm}>Confirm Booking</Button>
               )}
