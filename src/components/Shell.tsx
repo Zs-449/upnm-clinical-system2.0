@@ -37,6 +37,7 @@ import {
 } from "@/lib/session";
 import { toggleTheme, getTheme } from "@/lib/theme";
 import { Toaster, Modal, toast } from "@/components/ui";
+import CareOpsAssistant from "@/components/CareOpsAssistant";
 
 interface NavItem {
   href: string;
@@ -53,6 +54,7 @@ const NAV: NavItem[] = [
   { href: "/appointments", label: "Appointments", icon: CalendarDays, roles: ["doctor", "admin", "student/lecturer"] },
   { href: "/emr", label: "Medical Records", icon: FileText, roles: ["doctor"] },
   { href: "/pharmacy", label: "Pharmacy", icon: Pill, roles: ["admin", "doctor"] },
+  { href: "/doctor-availability", label: "Doctor Availability", icon: Stethoscope, roles: ["admin"] },
   { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "doctor"] },
   // AI Screener and Fitness are ONLY for student/lecturer
   { href: "/ai-screener", label: "AI Screener", icon: Bot, roles: ["student/lecturer"] },
@@ -183,6 +185,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-[#f0f4f8] dark:bg-[#0f1f1a]">
       <Toaster />
+      {user.role === "admin" && <CareOpsAssistant />}
 
       {/* Inactivity Warning Modal */}
       {inactivityWarning && (
