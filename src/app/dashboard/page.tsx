@@ -46,6 +46,41 @@ function activityIcon(action: string): React.ElementType {
   return Activity;
 }
 
+interface ParsedActivity { title: string; meta: string[] }
+
+// Turns the existing free-text `activities.action` log strings (see
+// insertPrescription / prescriptions, medical-records and appointments
+// API routes for the exact formats produced) into a short title + metadata
+// lines for a scannable timeline card. Purely presentational — no new
+// data is invented, and any string that doesn't match a known pattern
+// still renders sensibly via the fallback at the bottom.
+function parseActivity(action: string): ParsedActivity {
+  let m: RegExpMatchArray | null;
+
+  m = action.match(/^prescription created for (Rx #\d+) — (.+?) \((Dr\.[^)]+)\)$/i);
+  if (m) return { title: "Prescription Created", meta: [`${m[1]} · ${m[2]}`, m[3]] };
+
+  m = action.match(/^medication dispensing started for (Rx #\d+) — (.+?) \((Dr\.[^)]+)\)$/i);
+  if (m) return { title: "Dispensing Started", meta: [`${m[1]} · ${m[2]}`, m[3]] };
+
+  m = action.match(/^medication collected by patient for (Rx #\d+)$/i);
+  if (m) return { title: "Medication Collected", meta: [m[1]] };
+
+  m = action.match(/^consultation recorded for .+? \((Dr\.[^)]+)\)(?: — (.+))?$/i);
+  if (m) return { title: "Consultation Recorded", meta: m[2] ? [m[2], m[1]] : [m[1]] };
+
+  m = action.match(/^booked (.+?) appointment on (.+)$/i);
+  if (m) return { title: "Appointment Booked", meta: [`${m[1]} appointment · ${m[2]}`] };
+
+  m = action.match(/^registered automatically via appointment booking$/i);
+  if (m) return { title: "Patient Auto-Registered", meta: ["via appointment booking"] };
+
+  m = action.match(/^registered as new patient$/i);
+  if (m) return { title: "Patient Registered", meta: [] };
+
+  return { title: action.charAt(0).toUpperCase() + action.slice(1), meta: [] };
+}
+
 export default function DashboardPage() {
   const { data, loading } = useApi<DashData>("/api/dashboard", 30000);
   // Read-only calls to the existing, already-working GET endpoints so the
@@ -289,26 +324,37 @@ export default function DashboardPage() {
       <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-3">
         {/* Timeline — 2/3 */}
         <div className="card p-6 xl:col-span-2">
-          <h2 className="mb-5 font-[Poppins] text-base font-semibold text-navy dark:text-white">Recent Clinical Activity</h2>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="font-[Poppins] text-base font-semibold text-navy dark:text-white">Recent Clinical Activity</h2>
+            {(data?.recent.length ?? 0) > 0 && <Link href="/patients" className="text-xs font-semibold text-cyan hover:underline">View all →</Link>}
+          </div>
           {loading ? (
-            <div className="space-y-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            <div className="space-y-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : data?.recent.length ? (
-            <div className="relative space-y-5 pl-5">
+            <div className="relative space-y-4 pl-5">
               <div className="absolute left-[7px] top-1 h-[calc(100%-8px)] w-px bg-slate-100 dark:bg-white/10" />
               {data.recent.map((a, i) => {
                 const Icon = activityIcon(a.action);
                 const dotColor = a.urgency === "critical" ? "#c25d5d" : a.urgency === "warning" ? "#d48040" : "#7a9e7e";
+                const parsed = parseActivity(a.action);
                 return (
                   <div key={a.id} className="relative flex items-start gap-3 animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
-                    <span className="absolute -left-5 top-0.5 grid h-3.5 w-3.5 place-items-center rounded-full border-2 border-white bg-white dark:border-[#12241f] dark:bg-[#12241f]" style={{ boxShadow: `0 0 0 2px ${dotColor}` }}>
+                    <span className="absolute -left-5 top-1 grid h-3.5 w-3.5 place-items-center rounded-full border-2 border-white bg-white dark:border-[#12241f] dark:bg-[#12241f]" style={{ boxShadow: `0 0 0 2px ${dotColor}` }}>
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
                     </span>
-                    <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-sm font-semibold text-navy dark:text-white">{a.patientName}</span>
-                      <span className="text-sm text-slate-500 dark:text-slate-400"> {a.action}</span>
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 dark:bg-white/5">
+                      <Icon className="h-3.5 w-3.5 text-slate-400" />
                     </div>
-                    <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.createdAt)}</span>
+                    <div className="min-w-0 flex-1 rounded-xl border border-slate-100 px-3 py-2 dark:border-white/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-semibold text-navy dark:text-white">{parsed.title}</span>
+                        <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.createdAt)}</span>
+                      </div>
+                      <div className="mt-0.5 truncate text-xs font-medium text-slate-600 dark:text-slate-300">{a.patientName}</div>
+                      {parsed.meta.map((line, mi) => (
+                        <div key={mi} className="truncate text-[11px] text-slate-400">{line}</div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
