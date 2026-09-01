@@ -1,5 +1,6 @@
 import { db } from "@/db";
-import { appointments, activities, doctorAvailability, users } from "@/db/schema";
+import { appointments, activities, users } from "@/db/schema";
+import { doctorAvailability } from "@/db/doctor-availability";
 import { asc, desc, eq, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
