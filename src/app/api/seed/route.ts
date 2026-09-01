@@ -41,7 +41,7 @@ export async function POST() {
 
   const hash = await bcrypt.hash("password123", 10);
   await db.insert(users).values([
-    { name: "Cadet Ahmad Firdaus", email: "student@upnm.edu.my", password: hash, role: "student/lecturer", avatarColor: "#00D4FF" },
+    { name: "Ahmad Firdaus", email: "student@upnm.edu.my", password: hash, role: "student/lecturer", avatarColor: "#00D4FF" },
     { name: "Dr. Aisyah Karim", email: "doctor@upnm.edu.my", password: hash, role: "doctor", avatarColor: "#2ECC8F", specialization: "General Medicine" },
     { name: "Admin Zulkifli", email: "admin@upnm.edu.my", password: hash, role: "admin", avatarColor: "#1B3A6B" },
   ]);
