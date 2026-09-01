@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { toast } from "@/components/ui";
-import { DOCTORS, SLOTS, doctorForDepartment, slotsForPeriod } from "@/lib/clinic";
+import { DOCTORS, doctorForDepartment } from "@/lib/clinic";
 
 interface Analysis { conditions: string[]; department: string; urgency: string; advice: string }
 type Stage = "chat" | "askDate" | "askPeriod" | "askSlot" | "confirm";
@@ -191,17 +191,12 @@ export default function AiScreenerPage() {
     const doctor = doctorForDepartment(department) ?? DOCTORS[0];
     let available: string[] = [];
     try {
-      const res = await fetch("/api/appointments");
+      const params = new URLSearchParams({ date: booking.date, doctor: doctor.name, period });
+      const res = await fetch(`/api/appointments?${params.toString()}`);
       const data = await res.json();
-      const taken = new Set(
-        (data.appointments ?? [])
-          .filter((a: { doctorName: string; date: string; status: string }) => a.doctorName === doctor.name && a.date === booking.date && a.status !== "Cancelled")
-          .map((a: { time: string }) => a.time)
-      );
-      available = slotsForPeriod(period).filter((t) => !taken.has(t));
-      if (available.length === 0) available = SLOTS.filter((t) => !taken.has(t));
+      available = data.doctors?.[0]?.slots ?? [];
     } catch {
-      available = slotsForPeriod(period);
+      available = [];
     }
     setTyping(false);
     if (available.length === 0) {
