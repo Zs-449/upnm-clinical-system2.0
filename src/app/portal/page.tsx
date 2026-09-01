@@ -13,7 +13,7 @@ interface Appt { id: number; patientName: string; department: string; doctorName
 interface Rx { id: number; patientName: string; medications: { name: string; dose: string; freq: string }[]; status: string; }
 
 export default function PortalPage() {
-  const [name, setName] = useState("Cadet");
+  const [name, setName] = useState("");
   const { data: ad } = useApi<{ appointments: Appt[] }>("/api/appointments", 30000);
   const { data: rd } = useApi<{ prescriptions: Rx[] }>("/api/prescriptions");
 
@@ -31,7 +31,7 @@ export default function PortalPage() {
   return (
     <Shell>
       <div className="mb-6">
-        <h1 className="font-[Poppins] text-2xl font-extrabold text-navy dark:text-white">Welcome back, {name.split(" ").slice(-1)[0]} 👋</h1>
+        <h1 className="font-[Poppins] text-2xl font-extrabold text-navy dark:text-white">Welcome back{name ? `, ${name.split(" ").slice(-1)[0]}` : ""} 👋</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">Your personal health portal</p>
       </div>
 
