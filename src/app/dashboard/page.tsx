@@ -18,7 +18,7 @@ import { getSession } from "@/lib/session";
 
 interface DashData {
   stats: { todayAppointments: number; activePatients: number; availableDoctors: number; pendingLabs: number };
-  queue: { id: number; patientName: string; status: string; queueNumber: number | null; doctorName: string; time: string }[];
+  queue: { id: number; patientName: string; status: string; queueNumber: number | null; doctorName: string; department?: string; time: string }[];
   recent: { id: number; patientName: string; action: string; urgency: string; createdAt: string }[];
   trend: { day: string; count: number }[];
   byDept: { department: string; count: number }[];
@@ -26,7 +26,7 @@ interface DashData {
 }
 interface RxLite { id: number; patientId: number; patientName: string; status: string; medications: { name: string; quantity?: number }[]; }
 interface InvLite { id: number; name: string; stock: number; minStock: number; }
-interface RecordLite { id: number; patientId: number; patientName: string; doctorName: string; diagnosis: string | null; chiefComplaint: string | null; prescriptionId: number | null; createdAt: string; }
+interface RecordLite { id: number; patientId: number; patientName: string; doctorName: string; diagnosis: string | null; chiefComplaint: string | null; treatmentPlan?: string | null; prescriptionId: number | null; createdAt: string; }
 
 const DEPT_COLORS: Record<string, string> = { General: "#1f3d3a", Dental: "#7a9e7e", "Mental Health": "#c9955a", Emergency: "#c25d5d" };
 
@@ -82,6 +82,37 @@ function parseActivity(action: string): ParsedActivity {
 }
 
 export default function DashboardPage() {
+  const session = getSession();
+  return session?.role === "doctor" ? <MedicalOfficerDashboard /> : <AdminDashboard />;
+}
+
+function MedicalOfficerDashboard() {
+  const { data, loading } = useApi<DashData>("/api/dashboard", 30000);
+  const { data: rxData } = useApi<{ prescriptions: RxLite[] }>("/api/prescriptions", 30000);
+  const { data: recData } = useApi<{ medicalRecords: RecordLite[] }>("/api/medical-records", 30000);
+  const { data: labData } = useApi<{ labResults: { id: number; patientName: string; testName: string; value: string; flag: string }[] }>("/api/lab-results", 30000);
+  const [greeting, setGreeting] = useState("Good afternoon");
+  const [doctorName, setDoctorName] = useState("Doctor");
+  useEffect(() => { const h = new Date().getHours(); setGreeting(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"); const user = getSession(); if (user) setDoctorName(user.name.replace(/^Dr\\.\\s*/i, "")); }, []);
+  const queue = data?.queue ?? [];
+  const waiting = queue.filter((item) => item.status === "Waiting");
+  const next = waiting[0] ?? queue.find((item) => item.status === "Scheduled");
+  const labs = labData?.labResults ?? data?.criticalLabs ?? [];
+  const records = recData?.medicalRecords ?? [];
+  const pendingNotes = records.filter((record) => !record.diagnosis).length;
+  const followUps = records.filter((record) => record.treatmentPlan?.toLowerCase().includes("follow")).length;
+  const pendingRx = (rxData?.prescriptions ?? []).filter((rx) => rx.status === "Pending").length;
+  return <Shell>
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-mint">Clinical workspace</p><h1 className="font-[Poppins] text-3xl font-extrabold tracking-tight text-navy dark:text-white">{greeting}, Dr. {doctorName}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Here&apos;s your clinical overview for today.</p></div><Link href="/emr" className="flex items-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-navy/15 transition hover:-translate-y-0.5"><FileText className="h-4 w-4" /> Start consultation</Link></div>
+    <div className="mb-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><ClinicalMetric icon={Users} label="Today&apos;s queue" value={waiting.length} sub={`${waiting.length === 1 ? "patient" : "patients"} waiting`} color="#7a9e7e" /><ClinicalMetric icon={Clock} label="Next consultation" value={next?.time ?? "—"} sub={next?.patientName ?? "No patient queued"} color="#c9955a" /><ClinicalMetric icon={FlaskConical} label="Lab results" value={labs.length} sub="Need review" color="#c25d5d" /><ClinicalMetric icon={ClipboardList} label="Pending notes" value={pendingNotes} sub="Clinical records" color="#1f3d3a" /><ClinicalMetric icon={Pill} label="Prescriptions" value={pendingRx} sub="Awaiting action" color="#d48040" /></div>
+    <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]"><div className="card p-6"><div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-mint">Your Clinical Day</p><h2 className="mt-1 font-[Poppins] text-xl font-bold text-navy dark:text-white">Today&apos;s queue</h2></div><span className="rounded-full bg-mint/10 px-3 py-1 text-xs font-semibold text-mint">{waiting.length ? `${waiting.length} waiting` : "You&apos;re all set"}</span></div>{loading ? <Skeleton className="h-48 w-full" /> : waiting.length ? <div className="space-y-2">{waiting.slice(0, 6).map((item, index) => <div key={item.id} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 dark:border-white/10"><div className="grid h-10 w-10 place-items-center rounded-xl bg-mint/10 font-mono text-sm font-bold text-mint">#{item.queueNumber ?? index + 1}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-navy dark:text-white">{item.patientName}</div><div className="text-xs text-slate-400">{item.time} · {item.doctorName}</div></div><Link href={`/patients/${item.id}`} className="rounded-lg p-2 text-slate-400 transition hover:bg-mint/10 hover:text-mint"><ArrowRight className="h-4 w-4" /></Link></div>)}</div> : <div className="rounded-xl bg-mint/5 p-8 text-center"><CheckCircle2 className="mx-auto h-8 w-8 text-mint" /><p className="mt-2 text-sm font-semibold text-navy dark:text-white">You&apos;re all set for today.</p><p className="mt-1 text-xs text-slate-500">No patients are currently waiting.</p></div>}</div><div className="space-y-5"><div className="card p-6"><h2 className="font-[Poppins] font-bold text-navy dark:text-white">Clinical attention</h2><div className="mt-4 space-y-3"><ClinicalLink href="/patients" icon={Users} label="Patient records" detail="Review history and EMR" /><ClinicalLink href="/emr" icon={FileText} label="Clinical notes" detail={`${pendingNotes} records need completion`} /><ClinicalLink href="/pharmacy" icon={Pill} label="Prescriptions" detail={`${pendingRx} pending for pharmacy`} /><ClinicalLink href="/appointments" icon={CalendarCheck} label="Follow-ups" detail={`${followUps} follow-up records`} /></div></div><div className="card overflow-hidden bg-gradient-to-br from-navy to-[#2d5551] p-6 text-white"><div className="flex items-center gap-2 text-cyan"><Stethoscope className="h-4 w-4" /><span className="text-xs font-bold uppercase tracking-wider">Next consultation</span></div><div className="mt-3 font-[Poppins] text-2xl font-bold">{next?.time ?? "No upcoming slot"}</div><p className="mt-1 text-sm text-white/70">{next ? `${next.patientName} · ${next.department}` : "Your schedule is clear."}</p><Link href="/appointments" className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-cyan hover:underline">View appointments <ArrowRight className="h-3 w-3" /></Link></div></div></div>
+  </Shell>;
+}
+
+function ClinicalMetric({ icon: Icon, label, value, sub, color }: { icon: React.ElementType; label: string; value: number | string; sub: string; color: string }) { return <div className="card p-4"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-xl" style={{ background: `${color}18` }}><Icon className="h-4 w-4" style={{ color }} /></div><div className="min-w-0"><div className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</div><div className="font-mono text-xl font-bold text-navy dark:text-white">{value}</div><div className="truncate text-[11px] text-slate-400">{sub}</div></div></div></div>; }
+function ClinicalLink({ href, icon: Icon, label, detail }: { href: string; icon: React.ElementType; label: string; detail: string }) { return <Link href={href} className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-mint/5"><div className="grid h-9 w-9 place-items-center rounded-lg bg-mint/10 text-mint"><Icon className="h-4 w-4" /></div><div className="min-w-0 flex-1"><div className="text-sm font-semibold text-navy dark:text-white">{label}</div><div className="truncate text-xs text-slate-400">{detail}</div></div><ArrowRight className="h-3.5 w-3.5 text-slate-300" /></Link>; }
+
+function AdminDashboard() {
   const { data, loading } = useApi<DashData>("/api/dashboard", 30000);
   // Read-only calls to the existing, already-working GET endpoints so the
   // dashboard can show real pharmacy/inventory/consultation context instead
