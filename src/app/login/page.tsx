@@ -296,7 +296,7 @@ export default function LoginPage() {
                     <div className={`grid h-9 w-9 place-items-center rounded-lg transition-all ${active ? "bg-mint/15" : "bg-slate-100 group-hover:bg-mint/10 dark:bg-white/5"}`}>
                       <Icon className={`h-4.5 w-4.5 transition-transform ${active ? "scale-110 text-mint" : "group-hover:scale-110"}`} />
                     </div>
-                    <div className="text-[11px] font-semibold">{roleLabels[r.key].split("/")[0].trim()}</div>
+                    <div className="text-center text-[11px] font-semibold leading-tight">{roleLabels[r.key]}</div>
                     {active && (
                       <span className="absolute -top-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-mint text-white">
                         <svg className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor"><path d="M7.5 13.5L4 10l-1.5 1.5L7.5 16.5 17.5 6.5 16 5z" /></svg>
