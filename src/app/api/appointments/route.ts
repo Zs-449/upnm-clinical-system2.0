@@ -1,31 +1,23 @@
 import { db } from "@/db";
-import { appointments, activities } from "@/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
-import { buildAvailability, doctorByName, isBookableSlot, isClinicOpen, isValidDateString } from "@/lib/availability";
+import { appointments, activities, doctorAvailability, users } from "@/db/schema";
+import { asc, desc, eq, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const rows = await db
-    .select()
-    .from(appointments)
-    .orderBy(desc(appointments.date), appointments.time);
-
   const url = new URL(req.url);
-  const date = url.searchParams.get("date");
-  const department = url.searchParams.get("department") || undefined;
-  const doctorName = url.searchParams.get("doctor") || undefined;
-  const period = (url.searchParams.get("period") || "any") as "morning" | "afternoon" | "any";
-
-  if (date) {
-    return Response.json({
-      appointments: rows,
-      date,
-      open: isClinicOpen(date),
-      doctors: buildAvailability(date, rows, department, doctorName, period),
-    });
+  if (url.searchParams.get("available") === "1") {
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS doctor_availability (id serial PRIMARY KEY, doctor_user_id integer NOT NULL UNIQUE, weekly jsonb NOT NULL, created_at timestamp NOT NULL DEFAULT now(), updated_at timestamp NOT NULL DEFAULT now())`);
+    const date = url.searchParams.get("date") ?? "";
+    const department = url.searchParams.get("department") ?? "";
+    const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Kuala_Lumpur" }).format(new Date(`${date}T12:00:00`));
+    const doctors = await db.select({ id: users.id, name: users.name, specialization: users.specialization, weekly: doctorAvailability.weekly }).from(users).leftJoin(doctorAvailability, eq(users.id, doctorAvailability.doctorUserId)).where(eq(users.role, "doctor")).orderBy(asc(users.name));
+    const appointmentsOnDate = await db.select({ doctorName: appointments.doctorName, time: appointments.time }).from(appointments).where(eq(appointments.date, date));
+    const slotLabels = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00"];
+    const available = doctors.filter((doctor) => { const schedule = (doctor.weekly as Record<string, { state: string; start: string; end: string }> | null)?.[weekday]; return (!department || (doctor.specialization ?? "").toLowerCase().includes(department.toLowerCase()) || !doctor.specialization) && (!schedule || (schedule.state !== "unavailable" && schedule.state !== "not_scheduled")); }).map((doctor) => { const schedule = (doctor.weekly as Record<string, { state: string; start: string; end: string }> | null)?.[weekday]; const slots = slotLabels.filter((slot) => (!schedule || (slot >= schedule.start && slot < schedule.end)) && !appointmentsOnDate.some((booked) => booked.doctorName === doctor.name && booked.time === slot)); return { ...doctor, slots }; });
+    return Response.json({ doctors: available });
   }
-
+  const rows = await db.select().from(appointments).orderBy(desc(appointments.date), appointments.time);
   return Response.json({ appointments: rows });
 }
 
@@ -81,19 +73,18 @@ export async function POST(req: Request) {
       }
     }
 
-    const doctor = doctorByName(String(body.doctorName || ""));
-    if (!doctor || doctor.department !== body.department) {
-      return Response.json({ ok: false, error: "Please choose a valid doctor for this department." }, { status: 400 });
-    }
-    if (!isValidDateString(body.date) || !isClinicOpen(body.date)) {
-      return Response.json({ ok: false, error: "Appointments are available Monday to Friday. Please choose an open clinic date." }, { status: 400 });
+    // Enforce the persisted weekly schedule when the selected doctor has one.
+    const doctorSchedule = await db.select({ weekly: doctorAvailability.weekly }).from(users).leftJoin(doctorAvailability, eq(users.id, doctorAvailability.doctorUserId)).where(sql`${users.role} = 'doctor' AND ${users.name} = ${body.doctorName}`).limit(1);
+    if (doctorSchedule[0]?.weekly) {
+      const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Kuala_Lumpur" }).format(new Date(`${body.date}T12:00:00`));
+      const schedule = (doctorSchedule[0].weekly as Record<string, { state: string; start: string; end: string }>)[weekday];
+      if (!schedule || schedule.state === "unavailable" || schedule.state === "not_scheduled" || body.time < schedule.start || body.time >= schedule.end) {
+        return Response.json({ ok: false, error: `${body.doctorName} is not available at ${body.time} on ${body.date}. Please choose an available slot.` }, { status: 409 });
+      }
     }
 
-    // Prevent double-booking and keep all booking paths connected to the same availability rules.
-    const currentAppointments = await db.select().from(appointments);
-    if (!isBookableSlot(body.date, doctor.name, body.time, currentAppointments)) {
-      return Response.json({ ok: false, error: `${doctor.name} is not available at ${body.time} on ${body.date}. Please choose another slot.` }, { status: 409 });
-    }
+    // Prevent double-booking: the same doctor cannot have two appointments
+    // at the same date + time (unless the earlier one was cancelled).
     const clash = await db
       .select()
       .from(appointments)
