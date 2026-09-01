@@ -244,15 +244,15 @@ export default function LoginPage() {
             {FLOATING_STATS.map((s, i) => (
               <div
                 key={s.label}
-                className="card-premium animate-fade-up lift group flex items-center gap-2.5 rounded-xl p-3"
+                className="card-premium animate-fade-up lift group flex min-w-0 items-center gap-2.5 rounded-xl p-3"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
                 <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg" style={{ background: `${s.color}22` }}>
                   <s.icon className="h-4 w-4" style={{ color: s.color }} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="font-mono text-base font-extrabold text-navy dark:text-white">{s.value}</div>
-                  <div className="text-[9px] uppercase tracking-wider text-slate-400">{s.label}</div>
+                  <div className="break-words text-[9px] leading-tight uppercase tracking-wider text-slate-600 dark:text-slate-300">{s.label}</div>
                 </div>
               </div>
             ))}
