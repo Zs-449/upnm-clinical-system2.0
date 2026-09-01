@@ -114,10 +114,10 @@ export default function PortalPage() {
             </ul>
           </div>
 
-          <div className="card overflow-hidden bg-gradient-to-br from-navy to-[#2d5551] p-5 text-white">
-            <h2 className="mb-2 font-[Poppins] font-bold">💡 Health Tip</h2>
-            <p className="text-sm text-white/80 transition-all">{tips[tip]}</p>
-            <div className="mt-3 flex gap-1">{tips.map((_, i) => <span key={i} className={`h-1 rounded-full transition-all ${i === tip ? "w-5 bg-cyan" : "w-1 bg-white/30"}`} />)}</div>
+          <div className="card overflow-hidden border-mint/20 bg-gradient-to-br from-[#eef7ef] to-white p-5 dark:border-white/10 dark:from-[#203a30] dark:to-[#1a2b25]">
+            <h2 className="mb-2 flex items-center gap-2 font-[Poppins] font-bold text-navy dark:text-white"><span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-lg bg-cyan/15 text-cyan">💡</span> Health Tip</h2>
+            <p className="text-sm leading-relaxed text-slate-700 transition-all dark:text-slate-200">{tips[tip]}</p>
+            <div className="mt-3 flex gap-1" aria-label={`Health tip ${tip + 1} of ${tips.length}`}>{tips.map((_, i) => <span key={i} className={`h-1 rounded-full transition-all ${i === tip ? "w-5 bg-mint" : "w-1 bg-mint/25 dark:bg-white/30"}`} />)}</div>
           </div>
         </div>
       </div>
